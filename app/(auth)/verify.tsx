@@ -12,7 +12,7 @@ export default function VerifyRoute() {
         <BrandLogo variant="symbol" style={{ width: 64, height: 64, marginBottom: 24 }} />
         <Text className="font-serif text-3xl text-ink">Check your email</Text>
         <Text className="mt-2 text-center font-sans text-muted">
-          We sent a confirmation link. Open it to verify your account, then return here and sign in.
+          We sent you a link. Open it to verify your account or accept your invite, then come back here and sign in.
         </Text>
         <Pressable className="mt-8 rounded-xl bg-gold px-6 py-3 active:opacity-90" onPress={() => router.replace("/(auth)/login")}>
           <Text className="font-sans-medium text-white">Back to sign in</Text>

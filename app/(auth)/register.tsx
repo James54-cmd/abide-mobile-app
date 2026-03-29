@@ -1,8 +1,10 @@
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { colors } from "@/constants/theme";
 import { useEmailPasswordAuth } from "@/features/auth/hooks/useEmailPasswordAuth";
+import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Text, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function RegisterRoute() {
@@ -11,6 +13,12 @@ export default function RegisterRoute() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const emailRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => emailRef.current?.focus(), 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   async function onSubmit() {
     const result = await signUp(email, password, name || undefined);
@@ -23,13 +31,15 @@ export default function RegisterRoute() {
   return (
     <SafeAreaView className="flex-1 bg-parchment px-4">
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1 justify-center">
-        <Pressable onPress={() => router.back()} className="absolute left-0 top-2 z-10 py-2" hitSlop={12}>
-          <Text className="font-sans text-muted">Back</Text>
+        <Pressable
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          onPress={() => router.back()}
+          className="absolute left-0 top-2 z-10 py-2"
+          hitSlop={12}
+        >
+          <Feather name="chevron-left" size={28} color={colors.muted} />
         </Pressable>
-
-        <View className="mb-8 items-center">
-          <BrandLogo variant="symbol" style={{ width: 72, height: 72 }} />
-        </View>
 
         <BrandLogo variant="full" style={{ width: 180, height: 50, alignSelf: "center" }} />
 
@@ -50,6 +60,7 @@ export default function RegisterRoute() {
           onChangeText={setName}
         />
         <TextInput
+          ref={emailRef}
           className="mt-3 rounded-xl bg-cream px-4 py-3 font-sans text-ink"
           placeholder="Email"
           placeholderTextColor="#8C7B6A"

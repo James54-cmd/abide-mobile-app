@@ -1,8 +1,8 @@
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useEmailPasswordAuth } from "@/features/auth/hooks/useEmailPasswordAuth";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Text, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LoginRoute() {
@@ -10,6 +10,12 @@ export default function LoginRoute() {
   const { signIn, loading, error } = useEmailPasswordAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const emailRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => emailRef.current?.focus(), 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   async function onSubmit() {
     await signIn(email, password);
@@ -22,10 +28,6 @@ export default function LoginRoute() {
           <Text className="font-sans text-muted">Back</Text>
         </Pressable>
 
-        <View className="mb-8 items-center">
-          <BrandLogo variant="symbol" style={{ width: 72, height: 72 }} />
-        </View>
-
         <BrandLogo variant="full" style={{ width: 180, height: 50, alignSelf: "center" }} />
 
         <Text className="mt-4 text-center font-sans text-muted">Sign in with your email and password.</Text>
@@ -37,6 +39,7 @@ export default function LoginRoute() {
         ) : null}
 
         <TextInput
+          ref={emailRef}
           className="mt-4 rounded-xl bg-cream px-4 py-3 font-sans text-ink"
           placeholder="Email"
           placeholderTextColor="#8C7B6A"

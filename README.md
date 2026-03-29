@@ -25,7 +25,7 @@ Optional:
 | -------- | ------- |
 | `EXPO_PUBLIC_API_URL` | Backend API base URL (for non-Supabase HTTP calls later) |
 
-**Do not** put the Supabase **service role** key or SMTP secrets in this file—they belong only on a server, never in the mobile app.
+**Do not** put the Supabase **service role** key in this file—it must never ship inside the mobile app. Transactional email (confirmations, invites, etc.) is configured in the [Supabase Dashboard](https://supabase.com/dashboard) under **Authentication → Email Templates**, not in the client.
 
 ## Quick start
 
