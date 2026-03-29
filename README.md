@@ -8,23 +8,29 @@ Mobile app for **Abide**, a spiritual encouragement companion. Built with **Expo
 - **npm** (or compatible package manager)
 - For device or simulator builds: **Xcode** (iOS) and/or **Android Studio** (Android)
 
+## Environment (`.env.local`)
+
+Put client-safe values in **`.env.local`** at the project root. When you run `npx expo start`, Expo loads that file into `process.env` while evaluating **`app.config.ts`**, which copies Supabase (and optional API URL) into **`expo.extra`**. **`constants/config.ts`** reads them via **`expo-constants`**—the normal pattern for mobile so secrets are not hard-coded.
+
+You can use either naming style (handy if you share one `.env.local` with a Next.js app):
+
+| Variable | Purpose |
+| -------- | ------- |
+| `EXPO_PUBLIC_SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous (public) key |
+
+Optional:
+
+| Variable | Purpose |
+| -------- | ------- |
+| `EXPO_PUBLIC_API_URL` | Backend API base URL (for non-Supabase HTTP calls later) |
+
+**Do not** put the Supabase **service role** key or SMTP secrets in this file—they belong only on a server, never in the mobile app.
+
 ## Quick start
 
 ```bash
 npm install
-```
-
-Create **`.env.local`** in the project root (Expo loads `EXPO_PUBLIC_*` at build time):
-
-| Variable | Purpose |
-| -------- | ------- |
-| `EXPO_PUBLIC_API_URL` | Backend API base URL |
-| `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
-
-Start the dev server:
-
-```bash
 npm run start
 ```
 
@@ -51,15 +57,21 @@ Splash and icon paths live in **`app.json`** (`assets/brand/`).
 | `npm run lint` | Run Expo ESLint |
 | `npm run typecheck` | TypeScript check (`tsc --noEmit`) |
 
+## Auth
+
+Sign-in uses **Supabase Auth** with **email and password** (`signInWithPassword` / `signUp`). Logic lives in `lib/supabase/emailAuth.ts`; UI uses `features/auth/hooks/useEmailPasswordAuth.ts`. After a successful sign-in, `components/AuthBootstrap.tsx` syncs the session to `store/useAuthStore.ts` and navigates to the main tabs.
+
+If your Supabase project requires **email confirmation** on sign-up, new users are sent to **`/(auth)/verify`** until they confirm, then they can sign in on **`/(auth)/login`**.
+
 ## Project layout
 
 | Path | Role |
 | ---- | ---- |
 | `app/` | Expo Router routes only—thin shells that import feature screens |
-| `features/` | Product UI: `welcome`, `home`, and other feature folders with `screens/` (and hooks/components as they grow) |
-| `components/` | Shared UI (e.g. `brand/` for logo marks) |
-| `constants/` | Theme tokens, splash/brand asset maps, app config |
-| `lib/` | Data clients, Supabase helpers, `lib/native/*` device wrappers (haptics, offline, etc.) |
+| `features/` | Product UI: `welcome`, `home`, `auth` hooks, etc. |
+| `components/` | Shared UI (e.g. `brand/`, `AuthBootstrap`) |
+| `constants/` | Theme tokens, splash/brand asset maps, `config.ts` (env-backed) |
+| `lib/` | Supabase client, `lib/supabase/*` auth helpers, `lib/native/*` device wrappers |
 | `store/` | Cross-feature Zustand stores |
 | `assets/` | `brand/`, `splash/`, fonts, and other bundled media |
 | `supabase/migrations/` | SQL migrations |
@@ -67,15 +79,15 @@ Splash and icon paths live in **`app.json`** (`assets/brand/`).
 
 ### Entry flow
 
-- **`app/index.tsx`** → welcome / marketing (`features/welcome/screens/WelcomeScreen.tsx`): intro, carousel art, sign-up and log-in CTAs.
-- **`app/(auth)/`** → magic-link style auth routes.
-- **`app/(tabs)/`** → main app tabs (home is `home.tsx` so it does not clash with the root index route).
+- **`app/index.tsx`** → welcome / marketing (`features/welcome/screens/WelcomeScreen.tsx`).
+- **`app/(auth)/`** → email/password **login**, **register**, and **verify** (confirmation reminder).
+- **`app/(tabs)/`** → main app tabs (`home.tsx` avoids clashing with the root `index` route).
 
 ## Tech highlights
 
 - **Expo Router** with typed routes (`experiments.typedRoutes` in `app.json`)
-- **Supabase** client for auth and data (`@supabase/supabase-js`)
+- **Supabase** client for auth and data (`@supabase/supabase-js`), **AsyncStorage** session persistence in `lib/supabase.ts`
 - **Reanimated** for welcome animations
-- **expo-secure-store** for sensitive tokens (not `AsyncStorage`)
+- **expo-secure-store** reserved for other sensitive flows (tokens should not live in plain `AsyncStorage` beyond what Supabase auth uses)
 
 For deeper rules on where files belong (hooks vs screens vs `lib/`), see **`SKILL.md`**.

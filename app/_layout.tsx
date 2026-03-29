@@ -1,3 +1,4 @@
+import { AuthBootstrap } from "@/components/AuthBootstrap";
 import { brandLogo } from "@/constants/brand";
 import { splashArtSlides } from "@/constants/splash";
 import { useEffect } from "react";
@@ -27,6 +28,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#FAF7F2" }}>
         <StatusBar style="dark" />
+        <AuthBootstrap />
         <Stack screenOptions={{ headerShown: false }} />
       </GestureHandlerRootView>
     </SafeAreaProvider>
