@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Abide",
+    "slug": "abide-mobile-app",
+    "scheme": "abide",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/brand/abide-symbol.png",
+    "splash": {
+      "image": "./assets/brand/abide-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAF7F2"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.abide.mobile"
+    },
+    "android": {
+      "package": "com.abide.mobile"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#C9973A"
+        }
+      ],
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
