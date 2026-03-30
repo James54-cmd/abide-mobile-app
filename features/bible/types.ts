@@ -19,6 +19,7 @@ export interface BibleIndexScreenProps {
   selectedChapterByBook: Record<string, number>;
   chaptersByBook: Record<string, number[]>;
   loadingBookId: string | null;
+  loadingAllChapters: boolean;
   loadState: BibleChapterLoadState;
   errorMessage: string | null;
   chapterErrorMessage: string | null;

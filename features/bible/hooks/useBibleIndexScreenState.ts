@@ -2,7 +2,7 @@ import type { BibleIndexScreenProps, BibleTestament } from "@/features/bible/typ
 import { useBibleBookChaptersCatalog, useGetBibleBooks } from "@/lib/api/bible/hooks";
 import type { Translation } from "@/types";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const NEW_TESTAMENT_IDS = new Set([
   "MAT",
@@ -38,8 +38,14 @@ export function useBibleIndexScreenState(): BibleIndexScreenProps {
   const translation: Translation = "NIV";
   const router = useRouter();
   const { books, loadState, errorMessage, refetch } = useGetBibleBooks(translation);
-  const { chaptersByBook, loadingBookId, errorMessage: chapterErrorMessage, loadBookChapters } =
-    useBibleBookChaptersCatalog(translation);
+  const {
+    chaptersByBook,
+    loadingBookId,
+    loadingAll,
+    errorMessage: chapterErrorMessage,
+    loadBookChapters,
+    loadAllBookChapters,
+  } = useBibleBookChaptersCatalog(translation);
   const [activeTestament, setActiveTestament] = useState<BibleTestament>("old");
   const [expandedBookId, setExpandedBookId] = useState<string | null>(null);
   const [selectedChapterByBook, setSelectedChapterByBook] = useState<Record<string, number>>({});
@@ -49,6 +55,11 @@ export function useBibleIndexScreenState(): BibleIndexScreenProps {
       activeTestament === "new" ? isNewTestamentBook(book.id) : !isNewTestamentBook(book.id)
     );
   }, [books, activeTestament]);
+
+  useEffect(() => {
+    if (books.length === 0) return;
+    void loadAllBookChapters(books.map((b) => b.id));
+  }, [books, loadAllBookChapters]);
 
   const onOpen = useCallback(
     (book: string, chapter: number) => {
@@ -89,6 +100,7 @@ export function useBibleIndexScreenState(): BibleIndexScreenProps {
     selectedChapterByBook,
     chaptersByBook,
     loadingBookId,
+    loadingAllChapters: loadingAll,
     loadState,
     errorMessage,
     chapterErrorMessage,

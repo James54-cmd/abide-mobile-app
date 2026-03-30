@@ -137,11 +137,14 @@ export function useGetBibleBooks(translation: Translation): {
 export function useBibleBookChaptersCatalog(translation: Translation): {
   chaptersByBook: Record<string, number[]>;
   loadingBookId: string | null;
+  loadingAll: boolean;
   errorMessage: string | null;
   loadBookChapters: (bookId: string) => Promise<void>;
+  loadAllBookChapters: (bookIds: string[]) => Promise<void>;
 } {
   const [chaptersByBook, setChaptersByBook] = useState<Record<string, number[]>>({});
   const [loadingBookId, setLoadingBookId] = useState<string | null>(null);
+  const [loadingAll, setLoadingAll] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadBookChapters = useCallback(
@@ -162,5 +165,36 @@ export function useBibleBookChaptersCatalog(translation: Translation): {
     [chaptersByBook, translation]
   );
 
-  return { chaptersByBook, loadingBookId, errorMessage, loadBookChapters };
+  const loadAllBookChapters = useCallback(
+    async (bookIds: string[]) => {
+      const uniqueMissing = Array.from(
+        new Set(bookIds.filter((id) => id.trim() && !chaptersByBook[id]))
+      );
+      if (uniqueMissing.length === 0) return;
+
+      setLoadingAll(true);
+      setErrorMessage(null);
+      try {
+        const results = await Promise.all(
+          uniqueMissing.map(async (bookId) => ({
+            bookId,
+            chapters: await getBibleBookChapters(translation, bookId),
+          }))
+        );
+        setChaptersByBook((prev) => {
+          const next = { ...prev };
+          for (const row of results) next[row.bookId] = row.chapters;
+          return next;
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Could not pre-load chapters.";
+        setErrorMessage(msg);
+      } finally {
+        setLoadingAll(false);
+      }
+    },
+    [chaptersByBook, translation]
+  );
+
+  return { chaptersByBook, loadingBookId, loadingAll, errorMessage, loadBookChapters, loadAllBookChapters };
 }

@@ -2,8 +2,32 @@ import { colors } from "@/constants/theme";
 import { useBibleIndexScreenState } from "@/features/bible/hooks/useBibleIndexScreenState";
 import type { BibleBookItem, BibleIndexScreenProps } from "@/features/bible/types";
 import { Feather } from "@expo/vector-icons";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Animated,
+  FlatList,
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  UIManager,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// ─── Smooth accordion animation config ─────────────────────────────────────
+const accordionAnimation = LayoutAnimation.create(
+  260,
+  LayoutAnimation.Types.easeInEaseOut,
+  LayoutAnimation.Properties.opacity
+);
 
 export function BibleIndexScreen() {
   return <BibleIndexScreenView {...useBibleIndexScreenState()} />;
@@ -16,6 +40,7 @@ export function BibleIndexScreenView({
   selectedChapterByBook,
   chaptersByBook,
   loadingBookId,
+  loadingAllChapters,
   loadState,
   errorMessage,
   chapterErrorMessage,
@@ -28,23 +53,17 @@ export function BibleIndexScreenView({
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.stickyHeader}>
         <View style={styles.headerIconWrap}>
-          <Feather name="book-open" size={22} color={colors.gold} />
+          <Feather name="book-open" size={20} color={colors.gold} />
         </View>
         <Text style={styles.kicker}>HOLY SCRIPTURES</Text>
         <Text style={styles.headerTitle}>The Bible</Text>
         <Text style={styles.headerSubtitle}>Choose a book to begin reading</Text>
-        <View style={styles.tabsRow}>
-          <TestamentTab
-            label="Old Testament"
-            active={activeTestament === "old"}
-            onPress={() => onSelectTestament("old")}
-          />
-          <TestamentTab
-            label="New Testament"
-            active={activeTestament === "new"}
-            onPress={() => onSelectTestament("new")}
-          />
-        </View>
+
+        {/* Shadcn-style sliding tab */}
+        <TestamentTabs
+          active={activeTestament}
+          onSelect={onSelectTestament}
+        />
       </View>
 
       <FlatList
@@ -52,6 +71,14 @@ export function BibleIndexScreenView({
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          loadingAllChapters ? (
+            <View style={styles.preloadBanner}>
+              <ActivityIndicator size="small" color={colors.gold} />
+              <Text style={styles.preloadText}>Preparing chapter lists…</Text>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           loadState === "loading" ? (
             <View style={styles.stateWrap}>
@@ -91,29 +118,91 @@ export function BibleIndexScreenView({
   );
 }
 
-function TestamentTab({
-  label,
+// ─── Shadcn-style sliding tabs ──────────────────────────────────────────────
+const TABS = [
+  { key: "old", label: "Old Testament" },
+  { key: "new", label: "New Testament" },
+] as const;
+
+function TestamentTabs({
   active,
-  onPress,
+  onSelect,
 }: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
+  active: "old" | "new";
+  onSelect: (t: "old" | "new") => void;
 }) {
+  const [tabWidths, setTabWidths] = useState<Record<string, number>>({});
+  const [tabOffsets, setTabOffsets] = useState<Record<string, number>>({});
+  const indicatorX = useRef(new Animated.Value(0)).current;
+  const indicatorW = useRef(new Animated.Value(0)).current;
+
+  const measured = Object.keys(tabWidths).length === TABS.length;
+
+  useEffect(() => {
+    if (!measured) return;
+    const x = tabOffsets[active] ?? 0;
+    const w = tabWidths[active] ?? 0;
+    Animated.parallel([
+      Animated.spring(indicatorX, {
+        toValue: x,
+        useNativeDriver: false,
+        damping: 22,
+        stiffness: 220,
+        mass: 0.8,
+      }),
+      Animated.spring(indicatorW, {
+        toValue: w,
+        useNativeDriver: false,
+        damping: 22,
+        stiffness: 220,
+        mass: 0.8,
+      }),
+    ]).start();
+  }, [active, measured]);
+
+  let cumulativeOffset = 0;
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.tab,
-        active && styles.tabActive,
-        pressed && { opacity: 0.9 },
-      ]}
-    >
-      <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>
-    </Pressable>
+    <View style={styles.tabsContainer}>
+      {/* Sliding background indicator */}
+      {measured && (
+        <Animated.View
+          style={[
+            styles.tabIndicator,
+            {
+              left: indicatorX,
+              width: indicatorW,
+            },
+          ]}
+        />
+      )}
+
+      {TABS.map((tab, i) => {
+        const offset = cumulativeOffset;
+        // We'll measure inline; cumulativeOffset updated via onLayout
+        const isActive = active === tab.key;
+        return (
+          <Pressable
+            key={tab.key}
+            onPress={() => onSelect(tab.key)}
+            onLayout={(e) => {
+              const { width, x } = e.nativeEvent.layout;
+              setTabWidths((prev) => ({ ...prev, [tab.key]: width }));
+              setTabOffsets((prev) => ({ ...prev, [tab.key]: x }));
+            }}
+            style={({ pressed }) => [styles.tabItem, pressed && { opacity: 0.8 }]}
+          >
+            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+              {tab.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
+// ─── Animated accordion book row ────────────────────────────────────────────
 function BookRow({
   book,
   index,
@@ -135,25 +224,67 @@ function BookRow({
   onToggle: () => void;
   onSelectChapter: (chapter: number) => void;
 }) {
+  const chevronRotate = useRef(new Animated.Value(0)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.spring(chevronRotate, {
+      toValue: expanded ? 1 : 0,
+      useNativeDriver: true,
+      damping: 18,
+      stiffness: 200,
+    }).start();
+  }, [expanded]);
+
+  const handleToggle = () => {
+    LayoutAnimation.configureNext(accordionAnimation);
+    onToggle();
+  };
+
+  const handlePressIn = () => {
+    Animated.spring(pressScale, { toValue: 0.985, useNativeDriver: true, damping: 20, stiffness: 300 }).start();
+  };
+  const handlePressOut = () => {
+    Animated.spring(pressScale, { toValue: 1, useNativeDriver: true, damping: 20, stiffness: 300 }).start();
+  };
+
+  const chevronDeg = chevronRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "90deg"],
+  });
+
   return (
-    <View style={[styles.card, index > 0 && styles.cardSpacing]}>
+    <Animated.View
+      style={[
+        styles.card,
+        index > 0 && styles.cardSpacing,
+        { transform: [{ scale: pressScale }] },
+      ]}
+    >
       <View style={styles.cardAccent} />
+
       <Pressable
-        style={({ pressed }) => [styles.cardHeader, pressed && { opacity: 0.92 }]}
-        onPress={onToggle}
+        style={styles.cardHeader}
+        onPress={handleToggle}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         accessibilityRole="button"
         accessibilityLabel={`Toggle ${book.name}`}
+        accessibilityState={{ expanded }}
       >
         <Text style={styles.cardTitle}>{book.name}</Text>
-        <Feather
-          name={expanded ? "chevron-down" : "chevron-right"}
-          size={18}
-          color={colors.muted}
-          style={{ opacity: 0.55 }}
-        />
+
+        {/* Chapter count badge when collapsed */}
+        {!expanded && chapters.length > 0 && (
+          <Text style={styles.chapterCountBadge}>{chapters.length} ch.</Text>
+        )}
+
+        <Animated.View style={{ transform: [{ rotate: chevronDeg }], opacity: 0.45 }}>
+          <Feather name="chevron-right" size={17} color={colors.muted} />
+        </Animated.View>
       </Pressable>
 
-      {expanded ? (
+      {expanded && (
         <View style={styles.accordionBody}>
           {loading ? (
             <View style={styles.loadingInline}>
@@ -165,15 +296,12 @@ function BookRow({
               {chapters.map((chapter) => {
                 const selected = selectedChapter === chapter;
                 return (
-                  <Pressable
+                  <ChapterChip
                     key={`${book.id}-${chapter}`}
-                    style={[styles.chapterChip, selected && styles.chapterChipSelected]}
+                    chapter={chapter}
+                    selected={selected}
                     onPress={() => onSelectChapter(chapter)}
-                  >
-                    <Text style={[styles.chapterChipText, selected && styles.chapterChipTextSelected]}>
-                      {chapter}
-                    </Text>
-                  </Pressable>
+                  />
                 );
               })}
             </View>
@@ -181,11 +309,52 @@ function BookRow({
             <Text style={styles.inlineError}>{chapterErrorMessage ?? "No chapters found."}</Text>
           )}
         </View>
-      ) : null}
-    </View>
+      )}
+    </Animated.View>
   );
 }
 
+// ─── Chapter chip with press animation ──────────────────────────────────────
+function ChapterChip({
+  chapter,
+  selected,
+  onPress,
+}: {
+  chapter: number;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, damping: 15, stiffness: 400 }).start();
+  };
+  const handlePressOut = () => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, damping: 12, stiffness: 350 }).start();
+  };
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <Animated.View
+        style={[
+          styles.chapterChip,
+          selected && styles.chapterChipSelected,
+          { transform: [{ scale }] },
+        ]}
+      >
+        <Text style={[styles.chapterChipText, selected && styles.chapterChipTextSelected]}>
+          {chapter}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+// ─── Styles ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
@@ -194,15 +363,15 @@ const styles = StyleSheet.create({
   stickyHeader: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 16,
+    paddingBottom: 0,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(140,123,106,0.18)",
     backgroundColor: colors.parchment,
   },
   headerIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: "rgba(201,151,58,0.12)",
     alignItems: "center",
     justifyContent: "center",
@@ -220,7 +389,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     lineHeight: 34,
     color: colors.ink,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   headerSubtitle: {
     fontFamily: "sans",
@@ -228,83 +397,94 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.muted,
   },
-  tabsRow: {
-    marginTop: 14,
+
+  // ── Shadcn-style tabs ──
+  tabsContainer: {
     flexDirection: "row",
-    gap: 10,
+    marginTop: 16,
+    borderBottomWidth: 1.5,
+    borderBottomColor: "rgba(140,123,106,0.15)",
+    position: "relative",
   },
-  tab: {
-    flex: 1,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "rgba(201,151,58,0.25)",
-    backgroundColor: colors.white,
-    paddingVertical: 9,
-    alignItems: "center",
-  },
-  tabActive: {
-    backgroundColor: "rgba(201,151,58,0.15)",
-    borderColor: "rgba(201,151,58,0.55)",
+  tabItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+    marginRight: 24,
   },
   tabLabel: {
     fontFamily: "sans-medium",
-    fontSize: 13,
+    fontSize: 14,
     color: colors.muted,
   },
   tabLabelActive: {
     color: colors.ink,
   },
+  tabIndicator: {
+    position: "absolute",
+    bottom: -1.5,
+    height: 2,
+    backgroundColor: colors.gold,
+    borderRadius: 999,
+  },
+
+  // ── List ──
   listContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 28,
+    paddingBottom: 32,
   },
+
+  // ── Book card ──
   card: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: colors.cream,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(201,151,58,0.14)",
-    paddingVertical: 18,
-    paddingHorizontal: 16,
+    borderColor: "rgba(201,151,58,0.13)",
     overflow: "hidden",
-    shadowColor: "rgba(44,31,14,0.06)",
-    shadowOffset: { width: 0, height: 3 },
+    shadowColor: "rgba(44,31,14,0.07)",
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
-    shadowRadius: 10,
+    shadowRadius: 8,
     elevation: 2,
   },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
   cardSpacing: {
-    marginTop: 12,
+    marginTop: 10,
   },
   cardAccent: {
     position: "absolute",
     left: 0,
     top: 0,
     bottom: 0,
-    width: 4,
+    width: 3.5,
     backgroundColor: colors.gold,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingLeft: 20,
+    paddingRight: 16,
   },
   cardTitle: {
     flex: 1,
-    marginLeft: 8,
     fontFamily: "serif",
-    fontSize: 33/2,
+    fontSize: 16,
     color: colors.ink,
+  },
+  chapterCountBadge: {
+    fontFamily: "sans",
+    fontSize: 11,
+    color: colors.muted,
+    opacity: 0.65,
+    marginRight: 8,
   },
   accordionBody: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(140,123,106,0.18)",
-    paddingHorizontal: 14,
+    borderTopColor: "rgba(140,123,106,0.15)",
+    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 14,
+    paddingLeft: 20,
   },
   loadingInline: {
     flexDirection: "row",
@@ -320,14 +500,16 @@ const styles = StyleSheet.create({
   chapterWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 7,
   },
+
+  // ── Chapter chips ──
   chapterChip: {
-    minWidth: 38,
-    height: 34,
-    borderRadius: 8,
+    minWidth: 44,
+    height: 40,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(140,123,106,0.3)",
+    borderColor: "rgba(140,123,106,0.25)",
     backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
@@ -335,11 +517,11 @@ const styles = StyleSheet.create({
   },
   chapterChipSelected: {
     borderColor: colors.gold,
-    backgroundColor: "rgba(201,151,58,0.14)",
+    backgroundColor: "rgba(201,151,58,0.13)",
   },
   chapterChipText: {
     fontFamily: "sans-medium",
-    fontSize: 13,
+    fontSize: 14,
     color: colors.muted,
   },
   chapterChipTextSelected: {
@@ -349,6 +531,20 @@ const styles = StyleSheet.create({
     fontFamily: "sans",
     fontSize: 13,
     lineHeight: 18,
+    color: colors.muted,
+  },
+
+  // ── States ──
+  preloadBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingBottom: 10,
+  },
+  preloadText: {
+    fontFamily: "sans",
+    fontSize: 13,
     color: colors.muted,
   },
   stateWrap: {

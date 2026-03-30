@@ -41,14 +41,19 @@ export async function getBibleBooks(translation: Translation): Promise<BibleApiB
   }
 
   const raw = (await response.json()) as {
-    data?: Array<{ id?: string; name?: string; abbreviation?: string }>;
+    data?: Array<{ id?: string; name?: string; nameLong?: string; abbreviation?: string }>;
   };
   if (!Array.isArray(raw?.data)) return [];
 
   return raw.data
     .map((b) => ({
       id: typeof b.id === "string" ? b.id : "",
-      name: typeof b.name === "string" ? b.name : "",
+      name:
+        typeof b.nameLong === "string" && b.nameLong.trim()
+          ? b.nameLong
+          : typeof b.name === "string"
+            ? b.name
+            : "",
     }))
     .filter((b) => b.id && b.name);
 }
