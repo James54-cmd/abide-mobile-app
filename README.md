@@ -61,7 +61,7 @@ Splash and icon paths live in **`app.json`** (`assets/brand/`).
 
 Sign-in uses **Supabase Auth** with **email and password** (`signInWithPassword` / `signUp`). Logic lives in `lib/supabase/emailAuth.ts`; UI uses `features/auth/hooks/useEmailPasswordAuth.ts`. After a successful sign-in, `components/AuthBootstrap.tsx` syncs the session to `store/useAuthStore.ts` and navigates to the main tabs.
 
-If your Supabase project requires **email confirmation** on sign-up, new users are sent to **`/(auth)/verify`** until they confirm, then they can sign in on **`/(auth)/login`**.
+If your Supabase project requires **email confirmation** on sign-up, new users are sent to **`/(auth)/verify`** to enter the **OTP** from their email (not a browser link). Use the same pattern for **invites**: put `{{ .Token }}` in your **Invite** and **Confirm signup** templates (Supabase sends a one-time code; magic links often open the wrong URL, e.g. localhost, on mobile). **Sign in → “Invited? Enter your code”** opens verify with the invite flow. **Resend code** uses `auth.resend` and only applies to signup confirmation, not invites.
 
 ## Project layout
 

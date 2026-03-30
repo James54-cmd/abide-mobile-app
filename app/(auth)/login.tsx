@@ -71,7 +71,19 @@ export default function LoginRoute() {
           )}
         </Pressable>
 
-        <Pressable className="mt-6" onPress={() => router.replace("/(auth)/register")}>
+        <Pressable
+          className="mt-6"
+          onPress={() =>
+            router.push({
+              pathname: "/(auth)/verify",
+              params: { kind: "invite" }
+            })
+          }
+        >
+          <Text className="text-center font-sans text-muted">Invited? Enter your code</Text>
+        </Pressable>
+
+        <Pressable className="mt-3" onPress={() => router.replace("/(auth)/register")}>
           <Text className="text-center font-sans text-gold">New here? Create an account</Text>
         </Pressable>
       </KeyboardAvoidingView>

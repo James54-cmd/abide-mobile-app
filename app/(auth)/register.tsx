@@ -24,7 +24,10 @@ export default function RegisterRoute() {
     const result = await signUp(email, password, name || undefined);
     if (!result.ok) return;
     if (result.needsEmailConfirmation) {
-      router.replace("/(auth)/verify");
+      router.replace({
+        pathname: "/(auth)/verify",
+        params: { email: email.trim().toLowerCase(), kind: "signup" }
+      });
     }
   }
 
