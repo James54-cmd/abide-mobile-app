@@ -5,8 +5,8 @@ export type EmailAuthResult =
   | { ok: true; needsEmailConfirmation?: boolean }
   | { ok: false; message: string };
 
-/** Matches Supabase email OTP flows (confirm signup vs accept invite). */
-export type EmailOtpKind = "signup" | "invite";
+/** Supabase `verifyOtp` email types used in this app. */
+export type AuthOtpKind = "signup" | "invite" | "recovery";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -82,14 +82,13 @@ export async function signUpWithEmailPassword(
 }
 
 /**
- * Confirm signup or invite using the numeric code from email (`{{ .Token }}` in templates).
+ * Confirm signup, invite, or password-recovery OTP (`{{ .Token }}` in templates).
  * Token must be exactly `OTP_CODE_LENGTH` digits (see `features/auth/validation.ts`).
- * No browser / localhost redirect required.
  */
-export async function verifyEmailOtp(
+export async function verifyAuthOtp(
   email: string,
   token: string,
-  kind: EmailOtpKind
+  kind: AuthOtpKind
 ): Promise<EmailAuthResult> {
   const trimmed = normalizeEmail(email);
   if (!trimmed) {
@@ -118,7 +117,12 @@ export async function verifyEmailOtp(
   return { ok: true };
 }
 
-/** Resend signup confirmation email (same code flow). Not available for invite. */
+/** @deprecated Use `verifyAuthOtp` — kept for gradual migration */
+export const verifyEmailOtp = verifyAuthOtp;
+
+/**
+ * Resend signup confirmation email (Supabase issues a new OTP; previous code stops working).
+ */
 export async function resendSignupConfirmation(email: string): Promise<EmailAuthResult> {
   const trimmed = normalizeEmail(email);
   if (!trimmed) {
@@ -132,6 +136,43 @@ export async function resendSignupConfirmation(email: string): Promise<EmailAuth
     type: "signup",
     email: trimmed
   });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+  return { ok: true };
+}
+
+/**
+ * Sends password recovery email with OTP (same as “resend” for recovery flow).
+ * OTP expiry is server-side; app enforces resend cooldown separately.
+ */
+export async function requestPasswordRecoveryOtp(email: string): Promise<EmailAuthResult> {
+  const trimmed = normalizeEmail(email);
+  if (!trimmed) {
+    return { ok: false, message: "Please enter your email." };
+  }
+  if (!isValidEmail(trimmed)) {
+    return { ok: false, message: "Enter a valid email." };
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(trimmed);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+  return { ok: true };
+}
+
+export async function updatePassword(newPassword: string): Promise<EmailAuthResult> {
+  if (!newPassword || newPassword.length < PASSWORD_MIN_LENGTH) {
+    return {
+      ok: false,
+      message: `Use a password of at least ${PASSWORD_MIN_LENGTH} characters.`,
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
 
   if (error) {
     return { ok: false, message: error.message };

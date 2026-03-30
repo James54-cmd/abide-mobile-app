@@ -3,7 +3,7 @@ import { FloatingLabelInput } from "@/components/ui/FloatingLabelInput";
 import { colors } from "@/constants/theme";
 import { useVerifyScreenState } from "@/features/auth/hooks/useVerifyScreenState";
 import { OTP_CODE_LENGTH } from "@/features/auth/validation";
-import type { EmailOtpKind } from "@/lib/supabase/emailAuth";
+import type { AuthOtpKind } from "@/lib/supabase/emailAuth";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
@@ -17,9 +17,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-function parseKind(raw: string | string[] | undefined): EmailOtpKind {
+function parseKind(raw: string | string[] | undefined): AuthOtpKind {
   const v = Array.isArray(raw) ? raw[0] : raw;
-  return v === "invite" ? "invite" : "signup";
+  if (v === "invite") return "invite";
+  if (v === "recovery") return "recovery";
+  return "signup";
 }
 
 export function VerifyScreen() {
@@ -39,6 +41,8 @@ export function VerifyScreen() {
     setCodeDigits,
     loading,
     resendLoading,
+    resendCooldownSec,
+    canResend,
     error,
     resendHint,
     emailRef,
@@ -258,10 +262,19 @@ export function VerifyScreen() {
           <Pressable
             style={{ marginTop: 16, paddingVertical: 6, alignItems: "center" }}
             onPress={() => void onResend()}
-            disabled={resendLoading || !email.trim()}
+            disabled={!canResend}
+            accessibilityState={{ disabled: !canResend }}
           >
             {resendLoading ? (
               <ActivityIndicator color={colors.gold} size="small" />
+            ) : resendCooldownSec > 0 ? (
+              <Text
+                className="font-sans text-muted"
+                style={{ fontSize: 14, textAlign: "center" }}
+                accessibilityLiveRegion="polite"
+              >
+                Resend code in {resendCooldownSec}s
+              </Text>
             ) : (
               <Text className="font-sans" style={{ color: colors.muted, fontSize: 14 }}>
                 Didn't get it?{" "}

@@ -1,3 +1,4 @@
+import { isSignedInHomeNavigationSuppressed } from "@/lib/auth/signedInNavigationGate";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
 import { router } from "expo-router";
@@ -61,7 +62,12 @@ export function AuthBootstrap() {
       }
       if (!session?.user) return;
       syncStoreFromSession(session);
-      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+      if (event === "INITIAL_SESSION") {
+        router.replace("/(tabs)/home");
+        return;
+      }
+      if (event === "SIGNED_IN") {
+        if (isSignedInHomeNavigationSuppressed()) return;
         router.replace("/(tabs)/home");
       }
     });
