@@ -1,7 +1,7 @@
 import { colors } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Modal, Pressable, StyleSheet, View } from "react-native";
+import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -23,14 +23,15 @@ interface BottomDrawerProps {
   children: ReactNode;
 }
 
-const DRAWER_HEIGHT = 620;
-const CLOSE_PROGRESS_THRESHOLD = DRAWER_HEIGHT * 0.25;
 const CLOSE_VELOCITY_THRESHOLD = 900;
 
 export function BottomDrawer({ visible, title, onClose, children }: BottomDrawerProps) {
   const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
+  const drawerHeight = useMemo(() => Math.max(620, Math.floor(screenHeight * 0.86)), [screenHeight]);
+  const closeProgressThreshold = useMemo(() => drawerHeight * 0.25, [drawerHeight]);
   const [mounted, setMounted] = useState(visible);
-  const translateY = useSharedValue(visible ? 0 : DRAWER_HEIGHT);
+  const translateY = useSharedValue(visible ? 0 : drawerHeight);
 
   useEffect(() => {
     if (visible) {
@@ -42,13 +43,13 @@ export function BottomDrawer({ visible, title, onClose, children }: BottomDrawer
       return;
     }
 
-    translateY.value = withTiming(DRAWER_HEIGHT, {
+    translateY.value = withTiming(drawerHeight, {
       duration: 220,
       easing: Easing.out(Easing.cubic),
     });
     const id = setTimeout(() => setMounted(false), 230);
     return () => clearTimeout(id);
-  }, [visible, translateY]);
+  }, [visible, drawerHeight, translateY]);
 
   const panGesture = Gesture.Pan()
     .onUpdate((event) => {
@@ -56,15 +57,15 @@ export function BottomDrawer({ visible, title, onClose, children }: BottomDrawer
         translateY.value = 0;
         return;
       }
-      translateY.value = Math.min(event.translationY, DRAWER_HEIGHT);
+      translateY.value = Math.min(event.translationY, drawerHeight);
     })
     .onEnd((event) => {
       const shouldClose =
-        event.translationY > CLOSE_PROGRESS_THRESHOLD || event.velocityY > CLOSE_VELOCITY_THRESHOLD;
+        event.translationY > closeProgressThreshold || event.velocityY > CLOSE_VELOCITY_THRESHOLD;
 
       if (shouldClose) {
         translateY.value = withTiming(
-          DRAWER_HEIGHT,
+          drawerHeight,
           { duration: 180, easing: Easing.out(Easing.cubic) },
           (finished) => {
             if (finished) runOnJS(onClose)();
@@ -80,7 +81,7 @@ export function BottomDrawer({ visible, title, onClose, children }: BottomDrawer
     });
 
   const backdropAnimated = useAnimatedStyle(() => ({
-    opacity: interpolate(translateY.value, [0, DRAWER_HEIGHT], [1, 0]),
+    opacity: interpolate(translateY.value, [0, drawerHeight], [1, 0]),
   }));
 
   const drawerAnimated = useAnimatedStyle(() => ({
@@ -99,7 +100,9 @@ export function BottomDrawer({ visible, title, onClose, children }: BottomDrawer
         </Animated.View>
 
         <GestureDetector gesture={panGesture}>
-          <Animated.View style={[styles.drawer, drawerAnimated, { paddingBottom: drawerPaddingBottom }]}>
+          <Animated.View
+            style={[styles.drawer, drawerAnimated, { maxHeight: drawerHeight, paddingBottom: drawerPaddingBottom }]}
+          >
             <View style={styles.grabber} />
             <View style={styles.headerRow}>
               <FontText style={styles.headerTitle} computeFont={passthroughComputeFont}>
@@ -132,7 +135,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(44,31,14,0.35)",
   },
   drawer: {
-    maxHeight: DRAWER_HEIGHT,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     borderWidth: 1,

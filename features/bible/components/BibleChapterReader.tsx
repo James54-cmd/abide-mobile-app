@@ -275,12 +275,6 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     paddingHorizontal: 12,
   },
-  hint: {
-    marginTop: 12,
-    fontFamily: "sans",
-    fontSize: 14,
-    color: colors.muted,
-  },
   errorIcon: {
     opacity: 0.55,
     marginBottom: 12,

@@ -20,7 +20,6 @@ export function BibleChapterScreen() {
 }
 
 export function BibleChapterScreenView({
-  book,
   bookLabel,
   chapter,
   translation,
@@ -176,9 +175,6 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     color: colors.muted,
     textAlign: "center",
-  },
-  scroll: {
-    flex: 1,
   },
   readerWrap: {
     flex: 1,
