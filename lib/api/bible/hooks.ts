@@ -26,12 +26,14 @@ export function useGetBibleChapter(
   translation: Translation
 ): {
   verses: BibleVerseLineDto[];
+  bookLabel: string | null;
   loadState: BibleChapterFetchState;
   errorMessage: string | null;
   refetch: () => void;
 } {
   const jwt = useAuthStore((s) => s.jwt);
   const [verses, setVerses] = useState<BibleVerseLineDto[]>([]);
+  const [bookLabel, setBookLabel] = useState<string | null>(null);
   const [loadState, setLoadState] = useState<BibleChapterFetchState>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryTick, setRetryTick] = useState(0);
@@ -45,6 +47,7 @@ export function useGetBibleChapter(
 
     if (!book.trim()) {
       setVerses([]);
+      setBookLabel(null);
       setErrorMessage("Missing book.");
       setLoadState("error");
       return;
@@ -63,6 +66,7 @@ export function useGetBibleChapter(
             text: v.text
           }))
         );
+        setBookLabel(data.bookLabel ?? null);
         setLoadState("ready");
       } catch (e) {
         if (cancelled) return;
@@ -73,6 +77,7 @@ export function useGetBibleChapter(
               ? e.message
               : "Could not load this chapter.";
         setVerses([]);
+        setBookLabel(null);
         setErrorMessage(msg);
         setLoadState("error");
       }
@@ -83,7 +88,7 @@ export function useGetBibleChapter(
     };
   }, [book, chapter, translation, jwt, retryTick]);
 
-  return { verses, loadState, errorMessage, refetch };
+  return { verses, bookLabel, loadState, errorMessage, refetch };
 }
 
 export function useGetBibleBooks(translation: Translation): {

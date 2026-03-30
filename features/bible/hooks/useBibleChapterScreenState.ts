@@ -16,7 +16,7 @@ export function useBibleChapterScreenState(
 ): BibleChapterScreenProps {
   const [activeTranslation, setActiveTranslation] = useState<Translation>(translation);
   const { books } = useGetBibleBooks(activeTranslation);
-  const { verses, loadState, errorMessage, refetch } = useGetBibleChapter(
+  const { verses, bookLabel: chapterBookLabel, loadState, errorMessage, refetch } = useGetBibleChapter(
     book,
     chapter,
     activeTranslation
@@ -35,6 +35,7 @@ export function useBibleChapterScreenState(
     book,
     chapter,
     books,
+    chapterBookLabel,
     chaptersByBook,
     loadBookChapters,
   });

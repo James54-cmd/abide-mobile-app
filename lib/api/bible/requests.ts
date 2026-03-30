@@ -136,6 +136,16 @@ function normalizeChapterResponse(raw: unknown): BibleChapterApiResponse {
   const o = raw as Record<string, unknown>;
   const chapter = typeof o.chapter === "number" ? o.chapter : Number(o.chapter);
   const translation = typeof o.translation === "string" ? o.translation : "NIV";
+  const reference = typeof o.reference === "string" ? o.reference : null;
+  const bookLabelRaw =
+    typeof o.bookLabel === "string"
+      ? o.bookLabel
+      : typeof o.book_name === "string"
+        ? o.book_name
+        : typeof o.bookName === "string"
+          ? o.bookName
+          : reference;
+  const bookLabel = bookLabelRaw ? extractBookLabel(bookLabelRaw) : null;
   const versesRaw = o.verses;
   if (!Array.isArray(versesRaw)) {
     throw new Error("Invalid chapter response: verses");
@@ -149,6 +159,7 @@ function normalizeChapterResponse(raw: unknown): BibleChapterApiResponse {
   return {
     chapter: Number.isFinite(chapter) ? chapter : 0,
     translation,
+    bookLabel: bookLabel ?? undefined,
     verses
   };
 }
@@ -221,8 +232,15 @@ async function getBibleChapterFromApiBible(
   return {
     chapter,
     translation,
+    bookLabel: raw?.data?.reference ? extractBookLabel(raw.data.reference) : undefined,
     verses: parsed,
   };
+}
+
+function extractBookLabel(value: string): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  return normalized.replace(/\s+\d+(?::\d+)?(?:\s*[--]\s*\d+)?\s*$/g, "").trim() || normalized;
 }
 
 function parseApiBibleVerses(raw: ApiBibleChapterResponse): BibleChapterVerseDto[] {

@@ -14,6 +14,7 @@ export interface UseBibleChapterNavigationInput {
   book: string;
   chapter: number;
   books: BibleBookItem[];
+  chapterBookLabel?: string | null;
   chaptersByBook: Record<string, number[]>;
   loadBookChapters: (bookId: string) => Promise<void>;
 }
@@ -33,6 +34,7 @@ export function useBibleChapterNavigation({
   book,
   chapter,
   books,
+  chapterBookLabel,
   chaptersByBook,
   loadBookChapters,
 }: UseBibleChapterNavigationInput): UseBibleChapterNavigationResult {
@@ -71,8 +73,8 @@ export function useBibleChapterNavigation({
   const canGoNextChapter =
     currentMaxChapter !== null && (chapter < currentMaxChapter || (chapter === currentMaxChapter && !!nextBookId));
   const currentBookLabel = useMemo(
-    () => books.find((b) => b.id.toUpperCase() === currentBookId)?.name ?? bookLabel,
-    [books, currentBookId, bookLabel]
+    () => chapterBookLabel ?? books.find((b) => b.id.toUpperCase() === currentBookId)?.name ?? bookLabel,
+    [chapterBookLabel, books, currentBookId, bookLabel]
   );
 
   const prevChapterLabel = useMemo(() => {

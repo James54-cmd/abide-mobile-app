@@ -10,6 +10,7 @@ export interface BibleChapterVerseDto {
 export interface BibleChapterApiResponse {
   chapter: number;
   translation: string;
+  bookLabel?: string;
   verses: BibleChapterVerseDto[];
 }
 
