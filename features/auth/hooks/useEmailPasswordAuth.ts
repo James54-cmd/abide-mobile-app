@@ -36,5 +36,9 @@ export function useEmailPasswordAuth() {
     []
   );
 
-  return { signIn, signUp, loading, error, clearError: () => setError(null) };
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  return { signIn, signUp, loading, error, clearError };
 }

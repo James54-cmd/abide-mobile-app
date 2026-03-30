@@ -1,3 +1,4 @@
+import { isValidEmail, PASSWORD_MIN_LENGTH } from "@/features/auth/validation";
 import { supabase } from "@/lib/supabase";
 
 export type EmailAuthResult =
@@ -23,6 +24,9 @@ export async function signInWithEmailPassword(
   if (!trimmed) {
     return { ok: false, message: "Please enter your email." };
   }
+  if (!isValidEmail(trimmed)) {
+    return { ok: false, message: "Enter a valid email." };
+  }
   if (!password) {
     return { ok: false, message: "Please enter your password." };
   }
@@ -47,8 +51,14 @@ export async function signUpWithEmailPassword(
   if (!trimmed) {
     return { ok: false, message: "Please enter your email." };
   }
-  if (!password || password.length < 6) {
-    return { ok: false, message: "Use a password of at least 6 characters." };
+  if (!isValidEmail(trimmed)) {
+    return { ok: false, message: "Enter a valid email." };
+  }
+  if (!password || password.length < PASSWORD_MIN_LENGTH) {
+    return {
+      ok: false,
+      message: `Use a password of at least ${PASSWORD_MIN_LENGTH} characters.`,
+    };
   }
 
   const { error, data } = await supabase.auth.signUp({
@@ -84,6 +94,9 @@ export async function verifyEmailOtp(
   if (!trimmed) {
     return { ok: false, message: "Please enter your email." };
   }
+  if (!isValidEmail(trimmed)) {
+    return { ok: false, message: "Enter a valid email." };
+  }
   const code = normalizeOtpToken(token);
   if (code.length < 6) {
     return { ok: false, message: "Enter the full code from your email." };
@@ -106,6 +119,9 @@ export async function resendSignupConfirmation(email: string): Promise<EmailAuth
   const trimmed = normalizeEmail(email);
   if (!trimmed) {
     return { ok: false, message: "Please enter your email." };
+  }
+  if (!isValidEmail(trimmed)) {
+    return { ok: false, message: "Enter a valid email." };
   }
 
   const { error } = await supabase.auth.resend({
