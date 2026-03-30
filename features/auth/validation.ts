@@ -31,3 +31,6 @@ export function isValidEmail(value: string): boolean {
 }
 
 export const PASSWORD_MIN_LENGTH = 8;
+
+/** Digits only, after stripping non-digits — must match `{{ .Token }}` length in Supabase Auth / `otp_length` in config. */
+export const OTP_CODE_LENGTH = 8;

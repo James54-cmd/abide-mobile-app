@@ -12,12 +12,14 @@ import {
   View,
   type StyleProp,
   type TextInputProps,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 
 interface FloatingLabelInputProps extends Omit<TextInputProps, "style"> {
   label: string;
   style?: StyleProp<ViewStyle>;
+  inputStyle?: StyleProp<TextStyle>;
   /** When true, show a red underline (field error). */
   error?: boolean;
   /** Shown below the field when set (typically when `error` is true). */
@@ -38,6 +40,7 @@ export const FloatingLabelInput = forwardRef<TextInput, FloatingLabelInputProps>
       error,
       errorMessage,
       passwordVisibilityToggle,
+      inputStyle,
       ...props
     },
     ref
@@ -102,7 +105,7 @@ export const FloatingLabelInput = forwardRef<TextInput, FloatingLabelInputProps>
               ref={setInputRef}
               value={value}
               multiline={multiline}
-              style={[styles.input, !multiline && styles.inputSingleLine]}
+              style={[styles.input, !multiline && styles.inputSingleLine, inputStyle]}
               onFocus={(e) => {
                 setIsFocused(true);
                 onFocus?.(e);

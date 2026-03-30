@@ -1,4 +1,4 @@
-import { isValidEmail, PASSWORD_MIN_LENGTH } from "@/features/auth/validation";
+import { isValidEmail, OTP_CODE_LENGTH, PASSWORD_MIN_LENGTH } from "@/features/auth/validation";
 import { supabase } from "@/lib/supabase";
 
 export type EmailAuthResult =
@@ -13,7 +13,7 @@ function normalizeEmail(email: string): string {
 }
 
 function normalizeOtpToken(token: string): string {
-  return token.replace(/\s|-/g, "");
+  return token.replace(/\D/g, "");
 }
 
 export async function signInWithEmailPassword(
@@ -83,6 +83,7 @@ export async function signUpWithEmailPassword(
 
 /**
  * Confirm signup or invite using the numeric code from email (`{{ .Token }}` in templates).
+ * Token must be exactly `OTP_CODE_LENGTH` digits (see `features/auth/validation.ts`).
  * No browser / localhost redirect required.
  */
 export async function verifyEmailOtp(
@@ -98,8 +99,11 @@ export async function verifyEmailOtp(
     return { ok: false, message: "Enter a valid email." };
   }
   const code = normalizeOtpToken(token);
-  if (code.length < 6) {
-    return { ok: false, message: "Enter the full code from your email." };
+  if (code.length !== OTP_CODE_LENGTH) {
+    return {
+      ok: false,
+      message: `Enter the ${OTP_CODE_LENGTH}-digit code from your email.`,
+    };
   }
 
   const { error } = await supabase.auth.verifyOtp({
