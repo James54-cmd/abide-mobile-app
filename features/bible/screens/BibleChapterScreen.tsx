@@ -1,4 +1,5 @@
 import { colors } from "@/constants/theme";
+import { BibleChapterReader } from "@/features/bible/components/BibleChapterReader";
 import { useBibleChapterScreenState } from "@/features/bible/hooks/useBibleChapterScreenState";
 import type { BibleChapterScreenProps } from "@/features/bible/types";
 import { Feather } from "@expo/vector-icons";
@@ -21,6 +22,9 @@ export function BibleChapterScreenView({
   chapter,
   translation,
   verses,
+  loadState,
+  errorMessage,
+  onRetry,
   onBack,
 }: BibleChapterScreenProps) {
   return (
@@ -55,14 +59,12 @@ export function BibleChapterScreenView({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.readerSheet}>
-          {verses.map((line) => (
-            <View key={line.verse} style={styles.verseRow}>
-              <Text style={styles.verseNum}>{line.verse}</Text>
-              <Text style={styles.verseText}>
-                {line.text}
-              </Text>
-            </View>
-          ))}
+          <BibleChapterReader
+            loadState={loadState}
+            verses={verses}
+            errorMessage={errorMessage}
+            onRetry={onRetry}
+          />
         </View>
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -150,24 +152,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 14,
     elevation: 3,
-  },
-  verseRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 18,
-  },
-  verseNum: {
-    width: 28,
-    fontFamily: "sans-medium",
-    fontSize: 11,
-    color: colors.gold,
-    paddingTop: 4,
-  },
-  verseText: {
-    flex: 1,
-    fontFamily: "serif",
-    fontSize: 19,
-    lineHeight: 30,
-    color: colors.ink,
   },
 });

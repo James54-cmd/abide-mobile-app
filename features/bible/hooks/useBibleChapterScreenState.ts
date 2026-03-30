@@ -1,4 +1,5 @@
-import type { BibleChapterScreenProps, BibleVerseLine } from "@/features/bible/types";
+import type { BibleChapterScreenProps } from "@/features/bible/types";
+import { useGetBibleChapter } from "@/lib/api/bible/hooks";
 import type { Translation } from "@/types";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo } from "react";
@@ -11,23 +12,21 @@ function humanizeBookId(id: string): string {
     .join(" ");
 }
 
-function mockVerses(_chapter: number): BibleVerseLine[] {
-  const line =
-    "Blessed are those who hunger and thirst for righteousness, for they will be filled.";
-  return Array.from({ length: 12 }, (_, i) => ({
-    verse: i + 1,
-    text: line,
-  }));
-}
-
+/**
+ * Composes data hook + navigation — no direct `fetch` / `getBibleChapter` here (SKILL.md).
+ */
 export function useBibleChapterScreenState(
   book: string,
   chapter: number,
   translation: Translation
 ): BibleChapterScreenProps {
   const router = useRouter();
+  const { verses, loadState, errorMessage, refetch } = useGetBibleChapter(
+    book,
+    chapter,
+    translation
+  );
 
-  const verses = useMemo(() => mockVerses(chapter), [chapter]);
   const bookLabel = useMemo(() => humanizeBookId(book), [book]);
 
   const onBack = useCallback(() => {
@@ -40,6 +39,9 @@ export function useBibleChapterScreenState(
     chapter,
     translation,
     verses,
-    onBack,
+    loadState,
+    errorMessage,
+    onRetry: refetch,
+    onBack
   };
 }

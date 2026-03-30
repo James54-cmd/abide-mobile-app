@@ -11,14 +11,27 @@ export async function apiRequest<T>(
   init: RequestInit = {},
   token?: string
 ): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers ?? {})
-    }
-  });
+  if (!API_URL.trim()) {
+    throw new Error(
+      "API URL is not set. Add EXPO_PUBLIC_API_URL (or NEXT_PUBLIC_API_URL) to .env.local — see app.config.ts — then restart Expo."
+    );
+  }
+
+  const url = `${API_URL}${path}`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init.headers ?? {})
+      }
+    });
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : "Unknown network error";
+    throw new Error(`Network request failed: ${url} (${reason})`);
+  }
 
   if (!response.ok) {
     let message = "Request failed";

@@ -41,16 +41,18 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="garden"
+        name="garden/index"
         options={{
           title: "Garden",
+          tabBarLabel: "Garden",
           tabBarIcon: ({ color, size }) => <Feather name="sun" size={size} color={color} />
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="profile/index"
         options={{
           title: "Settings",
+          tabBarLabel: "Settings",
           tabBarIcon: ({ color, size }) => <Feather name="settings" size={size} color={color} />
         }}
       />
