@@ -67,6 +67,7 @@ export interface BibleChapterScreenProps {
   onChangeTranslation: (translation: Translation) => void;
   settings: BibleReaderSettings;
   onChangeSettings: (next: BibleReaderSettings) => void;
+  headerTitleFontFamily: string;
   verseTextStyle: {
     fontFamily: string;
     fontSize: number;

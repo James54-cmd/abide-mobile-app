@@ -41,6 +41,7 @@ export function BibleChapterScreenView({
   onChangeTranslation,
   settings,
   onChangeSettings,
+  headerTitleFontFamily,
   verseTextStyle,
 }: BibleChapterScreenProps) {
   return (
@@ -57,7 +58,10 @@ export function BibleChapterScreenView({
             <Feather name="chevron-left" size={24} color={colors.muted} />
           </Pressable>
           <View style={styles.headerTitles}>
-            <Text style={styles.refTitle} numberOfLines={1}>
+            <Text
+              style={[styles.refTitle, { fontFamily: headerTitleFontFamily }]}
+              numberOfLines={1}
+            >
               {bookLabel} {chapter}
             </Text>
             <View style={styles.translationPill}>

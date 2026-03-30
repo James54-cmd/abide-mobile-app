@@ -66,6 +66,7 @@ export function useBibleChapterScreenState(
     fontSize: verseTextStyleTokens.fontSizePx,
     lineHeight: verseTextStyleTokens.lineHeightPx,
   };
+  const headerTitleFontFamily = verseTextStyleTokens.fontFamily;
 
   const currentBookChapters = chaptersByBook[currentBookId] ?? [];
   const currentMaxChapter = currentBookChapters.length > 0 ? currentBookChapters[currentBookChapters.length - 1] : null;
@@ -132,7 +133,7 @@ export function useBibleChapterScreenState(
 
   return {
     book,
-    bookLabel,
+    bookLabel: currentBookLabel,
     chapter,
     translation: activeTranslation,
     verses,
@@ -152,6 +153,7 @@ export function useBibleChapterScreenState(
     onChangeTranslation: setActiveTranslation,
     settings,
     onChangeSettings: applySettings,
+    headerTitleFontFamily,
     verseTextStyle
   };
 }
