@@ -14,7 +14,7 @@ export function BibleChapterScreen() {
   const ch = Number(chapter || "1") || 1;
   return (
     <BibleChapterScreenView
-      {...useBibleChapterScreenState(book ?? "", ch, "NIV")}
+      {...useBibleChapterScreenState(book ?? "", ch, "BSB")}
     />
   );
 }
@@ -37,6 +37,7 @@ export function BibleChapterScreenView({
   settingsVisible,
   onOpenSettings,
   onCloseSettings,
+  availableTranslations,
   onChangeTranslation,
   settings,
   onChangeSettings,
@@ -103,6 +104,7 @@ export function BibleChapterScreenView({
       >
         <BibleReaderSettingsPanel
           translation={translation}
+          availableTranslations={availableTranslations}
           onChangeTranslation={onChangeTranslation}
           settings={settings}
           onChange={onChangeSettings}

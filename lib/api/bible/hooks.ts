@@ -1,5 +1,10 @@
 import { ApiError } from "@/lib/api";
-import { getBibleBookChapters, getBibleBooks, getBibleChapter } from "@/lib/api/bible/requests";
+import {
+  getAvailableTranslations,
+  getBibleBookChapters,
+  getBibleBooks,
+  getBibleChapter,
+} from "@/lib/api/bible/requests";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { Translation } from "@/types";
 import { useCallback, useEffect, useState } from "react";
@@ -14,6 +19,54 @@ export interface BibleVerseLineDto {
 export interface BibleBookDto {
   id: string;
   name: string;
+}
+
+export function useGetBibleTranslations(): {
+  translations: Translation[];
+  loadState: BibleChapterFetchState;
+  errorMessage: string | null;
+  refetch: () => void;
+} {
+  const [translations, setTranslations] = useState<Translation[]>([]);
+  const [loadState, setLoadState] = useState<BibleChapterFetchState>("loading");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
+
+  const refetch = useCallback(() => {
+    setRetryTick((t) => t + 1);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadState("loading");
+    setErrorMessage(null);
+
+    void (async () => {
+      try {
+        const rows = await getAvailableTranslations();
+        if (cancelled) return;
+        setTranslations(rows);
+        setLoadState("ready");
+      } catch (e) {
+        if (cancelled) return;
+        const msg =
+          e instanceof ApiError
+            ? e.message
+            : e instanceof Error
+              ? e.message
+              : "Could not load translations.";
+        setTranslations([]);
+        setErrorMessage(msg);
+        setLoadState("error");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [retryTick]);
+
+  return { translations, loadState, errorMessage, refetch };
 }
 
 /**

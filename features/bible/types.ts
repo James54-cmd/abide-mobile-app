@@ -64,6 +64,7 @@ export interface BibleChapterScreenProps {
   settingsVisible: boolean;
   onOpenSettings: () => void;
   onCloseSettings: () => void;
+  availableTranslations: Translation[];
   onChangeTranslation: (translation: Translation) => void;
   settings: BibleReaderSettings;
   onChangeSettings: (next: BibleReaderSettings) => void;

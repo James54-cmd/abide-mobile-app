@@ -1,4 +1,4 @@
-export type Translation = "NIV" | "NLT";
+export type Translation = string;
 
 export interface Verse {
   id: string;

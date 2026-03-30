@@ -30,22 +30,40 @@ const LINE_SPACING_OPTIONS: { key: BibleLineSpacing; label: string }[] = [
 
 export interface BibleReaderSettingsPanelProps {
   translation: Translation;
+  availableTranslations: Translation[];
   onChangeTranslation: (translation: Translation) => void;
   settings: BibleReaderSettings;
   onChange: (next: BibleReaderSettings) => void;
 }
 
-const TRANSLATION_TABS: TabButtonOption<Translation>[] = [
-  { key: "NIV", label: "NIV" },
-  { key: "NLT", label: "NLT" },
-];
-
 export function BibleReaderSettingsPanel({
   translation,
+  availableTranslations,
   onChangeTranslation,
   settings,
   onChange,
 }: BibleReaderSettingsPanelProps) {
+  const translationTabs = useMemo<TabButtonOption<Translation>[]>(() => {
+    const preferred = ["BSB", "NIV", "NLT", "ESV"];
+    const availableSet = new Set(availableTranslations.map((t) => t.toUpperCase()));
+    const chosen: string[] = [];
+
+    for (const key of preferred) {
+      if (availableSet.has(key)) chosen.push(key);
+    }
+
+    for (const key of availableSet) {
+      if (chosen.length >= 4) break;
+      if (!chosen.includes(key)) chosen.push(key);
+    }
+
+    if (!chosen.includes(translation.toUpperCase())) {
+      chosen.push(translation.toUpperCase());
+    }
+
+    return chosen.map((key) => ({ key, label: key }));
+  }, [availableTranslations, translation]);
+
   const previewTextStyle = useMemo(() => {
     const { fontFamily, fontSizePx, lineHeightPx } = getReaderVerseTypographyFromSettings(settings);
     return {
@@ -74,7 +92,7 @@ export function BibleReaderSettingsPanel({
           Translation
         </FontText>
         <TabButtons
-          options={TRANSLATION_TABS}
+          options={translationTabs}
           activeKey={translation}
           onSelect={onChangeTranslation}
           style={styles.translationTabs}

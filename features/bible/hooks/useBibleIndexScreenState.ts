@@ -35,7 +35,7 @@ const NEW_TESTAMENT_IDS = new Set([
 ]);
 
 export function useBibleIndexScreenState(): BibleIndexScreenProps {
-  const translation: Translation = "NIV";
+  const translation: Translation = "BSB";
   const router = useRouter();
   const { books, loadState, errorMessage, refetch } = useGetBibleBooks(translation);
   const {

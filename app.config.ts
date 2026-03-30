@@ -12,13 +12,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     process.env.EXPO_PUBLIC_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const supabaseAnonKey =
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-  const apiBibleBaseUrl =
-    process.env.EXPO_PUBLIC_API_BIBLE_BASE_URL ?? process.env.API_BIBLE_BASE_URL ?? "";
-  const apiBibleKey = process.env.EXPO_PUBLIC_API_BIBLE_KEY ?? process.env.API_BIBLE_KEY ?? "";
-  const apiBibleIdNiv =
-    process.env.EXPO_PUBLIC_API_BIBLE_ID_NIV ?? process.env.API_BIBLE_ID_NIV ?? "";
-  const apiBibleIdNlt =
-    process.env.EXPO_PUBLIC_API_BIBLE_ID_NLT ?? process.env.API_BIBLE_ID_NLT ?? "";
 
   const apiUrl =
     process.env.EXPO_PUBLIC_API_URL?.trim() ||
@@ -31,11 +24,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...config.extra,
       supabaseUrl,
       supabaseAnonKey,
-      apiUrl,
-      apiBibleBaseUrl,
-      apiBibleKey,
-      apiBibleIdNiv,
-      apiBibleIdNlt
+      apiUrl
     }
   } as ExpoConfig;
 };

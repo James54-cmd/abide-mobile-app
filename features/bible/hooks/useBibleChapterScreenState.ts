@@ -1,5 +1,10 @@
 import type { BibleChapterScreenProps } from "@/features/bible/types";
-import { useBibleBookChaptersCatalog, useGetBibleBooks, useGetBibleChapter } from "@/lib/api/bible/hooks";
+import {
+  useBibleBookChaptersCatalog,
+  useGetBibleBooks,
+  useGetBibleChapter,
+  useGetBibleTranslations,
+} from "@/lib/api/bible/hooks";
 import { useBibleChapterNavigation } from "@/features/bible/hooks/useBibleChapterNavigation";
 import type { Translation } from "@/types";
 import { useCallback, useState } from "react";
@@ -15,6 +20,7 @@ export function useBibleChapterScreenState(
   translation: Translation
 ): BibleChapterScreenProps {
   const [activeTranslation, setActiveTranslation] = useState<Translation>(translation);
+  const { translations: availableTranslations } = useGetBibleTranslations();
   const { books } = useGetBibleBooks(activeTranslation);
   const { verses, bookLabel: chapterBookLabel, loadState, errorMessage, refetch } = useGetBibleChapter(
     book,
@@ -76,6 +82,7 @@ export function useBibleChapterScreenState(
     settingsVisible,
     onOpenSettings,
     onCloseSettings,
+    availableTranslations,
     onChangeTranslation: setActiveTranslation,
     settings,
     onChangeSettings: applySettings,
