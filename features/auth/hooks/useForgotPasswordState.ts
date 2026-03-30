@@ -1,5 +1,6 @@
 import { isValidEmail } from "@/features/auth/validation";
 import { requestPasswordRecoveryOtp } from "@/lib/supabase/emailAuth";
+import { hasEmailValue, normalizeEmail } from "@/lib/utils/email";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TextInput } from "react-native";
@@ -22,15 +23,15 @@ export function useForgotPasswordState() {
     setError(null);
   }, [email]);
 
-  const emailInvalid = showFieldValidation && (!email.trim() || !isValidEmail(email));
+  const emailInvalid = showFieldValidation && (!hasEmailValue(email) || !isValidEmail(email));
   const emailErrorMessage = emailInvalid
-    ? !email.trim()
+    ? !hasEmailValue(email)
       ? "Enter your email"
       : "Enter a valid email"
     : undefined;
 
   const onSubmit = useCallback(async () => {
-    const ok = email.trim().length > 0 && isValidEmail(email);
+    const ok = hasEmailValue(email) && isValidEmail(email);
     if (!ok) {
       setShowFieldValidation(true);
       return;
@@ -45,7 +46,7 @@ export function useForgotPasswordState() {
       }
       router.push({
         pathname: "/(auth)/verify",
-        params: { kind: "recovery", email: email.trim().toLowerCase() },
+        params: { kind: "recovery", email: normalizeEmail(email) },
       });
     } finally {
       setLoading(false);

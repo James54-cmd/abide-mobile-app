@@ -1,14 +1,11 @@
 import type { BibleBookItem } from "@/features/bible/types";
+import {
+  buildBibleChapterPath,
+  humanizeBibleBookId,
+  normalizeBibleBookId,
+} from "@/features/bible/utils/chapterRoute";
 import { useRouter, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo } from "react";
-
-function humanizeBookId(id: string): string {
-  if (!id) return "Scripture";
-  return id
-    .split(/[-_]/)
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
-    .join(" ");
-}
 
 export interface UseBibleChapterNavigationInput {
   book: string;
@@ -40,8 +37,8 @@ export function useBibleChapterNavigation({
 }: UseBibleChapterNavigationInput): UseBibleChapterNavigationResult {
   const router = useRouter();
 
-  const bookLabel = useMemo(() => humanizeBookId(book), [book]);
-  const currentBookId = useMemo(() => book.trim().toUpperCase(), [book]);
+  const bookLabel = useMemo(() => humanizeBibleBookId(book), [book]);
+  const currentBookId = useMemo(() => normalizeBibleBookId(book), [book]);
   const currentBookIndex = useMemo(
     () => books.findIndex((b) => b.id.toUpperCase() === currentBookId),
     [books, currentBookId]
@@ -99,7 +96,7 @@ export function useBibleChapterNavigation({
 
   const toChapterRoute = useCallback(
     (bookId: string, nextChapter: number, direction: "forward" | "backward"): Href => {
-      return `/(tabs)/bible/${bookId.toLowerCase()}/${nextChapter}?dir=${direction}` as Href;
+      return buildBibleChapterPath(bookId, nextChapter, direction) as Href;
     },
     []
   );

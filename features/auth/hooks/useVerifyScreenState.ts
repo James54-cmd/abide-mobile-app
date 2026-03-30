@@ -7,6 +7,7 @@ import {
   verifyAuthOtp,
   type AuthOtpKind,
 } from "@/lib/supabase/emailAuth";
+import { hasEmailValue } from "@/lib/utils/email";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TextInput } from "react-native";
@@ -80,12 +81,12 @@ export function useVerifyScreenState({
     router.replace("/(tabs)/home");
   }, [router]);
 
-  const emailInvalid = showFieldValidation && (!email.trim() || !isValidEmail(email));
+  const emailInvalid = showFieldValidation && (!hasEmailValue(email) || !isValidEmail(email));
   const codeInvalid =
     showFieldValidation && code.length !== OTP_CODE_LENGTH && !isLockedOut;
 
   const emailErrorMessage = emailInvalid
-    ? !email.trim()
+    ? !hasEmailValue(email)
       ? "Enter your email"
       : "Enter a valid email"
     : undefined;
@@ -99,7 +100,7 @@ export function useVerifyScreenState({
   const onVerify = useCallback(async () => {
     if (verificationPhase === "success" || isLockedOut) return;
     setResendHint(null);
-    const emailOk = email.trim().length > 0 && isValidEmail(email);
+    const emailOk = hasEmailValue(email) && isValidEmail(email);
     const codeOk = code.length === OTP_CODE_LENGTH;
     if (!emailOk || !codeOk) {
       setShowFieldValidation(true);
@@ -147,7 +148,7 @@ export function useVerifyScreenState({
   const onResend = useCallback(async () => {
     if (!hasResend || isLockedOut) return;
     setResendHint(null);
-    const emailOk = email.trim().length > 0 && isValidEmail(email);
+    const emailOk = hasEmailValue(email) && isValidEmail(email);
     if (!emailOk) {
       setShowFieldValidation(true);
       return;
@@ -178,7 +179,7 @@ export function useVerifyScreenState({
   const canResend =
     hasResend &&
     !isLockedOut &&
-    email.trim().length > 0 &&
+    hasEmailValue(email) &&
     resendCooldownSec <= 0 &&
     !resendLoading &&
     verificationPhase === "form";

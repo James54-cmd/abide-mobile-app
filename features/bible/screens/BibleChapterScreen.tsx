@@ -4,6 +4,7 @@ import { BibleChapterReader } from "@/features/bible/components/BibleChapterRead
 import { BibleReaderSettingsPanel } from "@/features/bible/components/BibleReaderSettingsPanel";
 import { useBibleChapterScreenState } from "@/features/bible/hooks/useBibleChapterScreenState";
 import type { BibleChapterScreenProps } from "@/features/bible/types";
+import { parseChapterParam, parseTransitionDirection } from "@/features/bible/utils/chapterRoute";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -12,8 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export function BibleChapterScreen() {
   const { book, chapter, dir } = useLocalSearchParams<{ book: string; chapter: string; dir?: string }>();
-  const ch = Number(chapter || "1") || 1;
-  const transitionDirection = dir === "backward" ? "backward" : "forward";
+  const ch = parseChapterParam(chapter);
+  const transitionDirection = parseTransitionDirection(dir);
   return (
     <BibleChapterScreenView
       {...useBibleChapterScreenState(book ?? "", ch, "BSB")}

@@ -1,5 +1,6 @@
 import { useEmailPasswordAuth } from "@/features/auth/hooks/useEmailPasswordAuth";
 import { isValidEmail } from "@/features/auth/validation";
+import { hasEmailValue } from "@/lib/utils/email";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TextInput } from "react-native";
@@ -22,18 +23,18 @@ export function useLoginScreenState() {
     setShowFieldValidation(false);
   }, [email, password, clearError]);
 
-  const emailInvalid = showFieldValidation && (!email.trim() || !isValidEmail(email));
+  const emailInvalid = showFieldValidation && (!hasEmailValue(email) || !isValidEmail(email));
   const passwordInvalid = showFieldValidation && password.length === 0;
 
   const emailErrorMessage = emailInvalid
-    ? !email.trim()
+    ? !hasEmailValue(email)
       ? "Enter your email"
       : "Enter a valid email"
     : undefined;
   const passwordErrorMessage = passwordInvalid ? "Enter your password" : undefined;
 
   const onSubmit = useCallback(async () => {
-    const emailOk = email.trim().length > 0 && isValidEmail(email);
+    const emailOk = hasEmailValue(email) && isValidEmail(email);
     const passwordOk = password.length > 0;
     if (!emailOk || !passwordOk) {
       setShowFieldValidation(true);

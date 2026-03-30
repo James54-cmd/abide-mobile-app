@@ -1,7 +1,8 @@
 import type { BibleIndexScreenProps, BibleTestament } from "@/features/bible/types";
+import { buildBibleChapterPath } from "@/features/bible/utils/chapterRoute";
 import { useBibleBookChaptersCatalog, useGetBibleBooks } from "@/lib/api/bible/hooks";
 import type { Translation } from "@/types";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const NEW_TESTAMENT_IDS = new Set([
@@ -63,7 +64,7 @@ export function useBibleIndexScreenState(): BibleIndexScreenProps {
 
   const onOpen = useCallback(
     (book: string, chapter: number) => {
-      router.push(`/(tabs)/bible/${book.toLowerCase()}/${chapter}`);
+      router.push(buildBibleChapterPath(book, chapter) as Href);
     },
     [router]
   );

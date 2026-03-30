@@ -1,5 +1,6 @@
 import { isValidEmail, OTP_CODE_LENGTH, PASSWORD_MIN_LENGTH } from "@/features/auth/validation";
 import { supabase } from "@/lib/supabase";
+import { normalizeEmail } from "@/lib/utils/email";
 
 export type EmailAuthResult =
   | { ok: true; needsEmailConfirmation?: boolean }
@@ -7,10 +8,6 @@ export type EmailAuthResult =
 
 /** Supabase `verifyOtp` email types used in this app. */
 export type AuthOtpKind = "signup" | "invite" | "recovery";
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
 
 function normalizeOtpToken(token: string): string {
   return token.replace(/\D/g, "");

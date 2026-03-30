@@ -1,5 +1,6 @@
 import { useEmailPasswordAuth } from "@/features/auth/hooks/useEmailPasswordAuth";
 import { isValidEmail, PASSWORD_MIN_LENGTH } from "@/features/auth/validation";
+import { hasEmailValue, normalizeEmail } from "@/lib/utils/email";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TextInput } from "react-native";
@@ -24,7 +25,7 @@ export function useRegisterScreenState() {
     setShowFieldValidation(false);
   }, [name, email, password, confirmPassword, clearError]);
 
-  const emailInvalid = showFieldValidation && (!email.trim() || !isValidEmail(email));
+  const emailInvalid = showFieldValidation && (!hasEmailValue(email) || !isValidEmail(email));
   const passwordInvalid =
     showFieldValidation &&
     (password.length < PASSWORD_MIN_LENGTH ||
@@ -37,7 +38,7 @@ export function useRegisterScreenState() {
       (password.length >= PASSWORD_MIN_LENGTH && password !== confirmPassword));
 
   const emailErrorMessage = emailInvalid
-    ? !email.trim()
+    ? !hasEmailValue(email)
       ? "Enter your email"
       : "Enter a valid email"
     : undefined;
@@ -53,7 +54,7 @@ export function useRegisterScreenState() {
     : undefined;
 
   const onSubmit = useCallback(async () => {
-    const emailOk = email.trim().length > 0 && isValidEmail(email);
+    const emailOk = hasEmailValue(email) && isValidEmail(email);
     const passwordOk = password.length >= PASSWORD_MIN_LENGTH;
     const confirmOk = confirmPassword.length > 0 && password === confirmPassword;
     if (!emailOk || !passwordOk || !confirmOk) {
@@ -65,7 +66,7 @@ export function useRegisterScreenState() {
     if (result.needsEmailConfirmation) {
       router.replace({
         pathname: "/(auth)/verify",
-        params: { email: email.trim().toLowerCase(), kind: "signup" },
+        params: { email: normalizeEmail(email), kind: "signup" },
       });
     }
   }, [email, password, confirmPassword, name, router, signUp]);
