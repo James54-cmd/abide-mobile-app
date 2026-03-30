@@ -5,6 +5,7 @@ import FontText from "react-native-fontext";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
   StyleSheet,
   View,
@@ -34,7 +35,6 @@ export interface BibleChapterReaderProps {
   onGoNextChapter: () => void;
   prevChapterLabel: string | null;
   nextChapterLabel: string | null;
-  viewportAnchorY: number;
   verseTextStyle?: {
     fontFamily: string;
     fontSize: number;
@@ -53,12 +53,13 @@ export function BibleChapterReader({
   onGoNextChapter,
   prevChapterLabel,
   nextChapterLabel,
-  viewportAnchorY,
   verseTextStyle,
 }: BibleChapterReaderProps) {
   const edgeHintOpacity = useSharedValue(0);
   const dragX = useSharedValue(0);
   const readerHeight = useSharedValue(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const viewportAnchorY = Math.max(80, viewportHeight * 0.42);
   const [edgeHintLabel, setEdgeHintLabel] = useState("");
 
   const edgeHintMotion = useAnimatedStyle(() => ({
@@ -152,7 +153,7 @@ export function BibleChapterReader({
         <View style={styles.centered} accessibilityLabel="Loading chapter">
           <ActivityIndicator size="large" color={colors.gold} />
           <FontText style={styles.hint} computeFont={passthroughComputeFont}>
-            Opening scripture…
+            Opening scripture...
           </FontText>
         </View>
       );
@@ -182,20 +183,23 @@ export function BibleChapterReader({
       );
     }
 
-    if (verses.length === 0) {
-      return (
-        <View style={styles.centered}>
-          <FontText style={styles.empty} computeFont={passthroughComputeFont}>
-            No verses for this chapter.
-          </FontText>
-        </View>
-      );
-    }
-
     return (
-      <>
-        {verses.map((line) => (
-          <View key={line.verse} style={styles.verseRow}>
+      <FlatList
+        data={verses}
+        keyExtractor={(item) => String(item.verse)}
+        showsVerticalScrollIndicator={false}
+        onLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
+        contentContainerStyle={styles.listContent}
+        ListFooterComponent={<View style={styles.listFooter} />}
+        ListEmptyComponent={
+          <View style={styles.centered}>
+            <FontText style={styles.empty} computeFont={passthroughComputeFont}>
+              No verses for this chapter.
+            </FontText>
+          </View>
+        }
+        renderItem={({ item: line }) => (
+          <View style={styles.verseRow}>
             <FontText style={styles.verseNum} computeFont={passthroughComputeFont}>
               {line.verse}
             </FontText>
@@ -206,8 +210,8 @@ export function BibleChapterReader({
               {line.text}
             </FontText>
           </View>
-        ))}
-      </>
+        )}
+      />
     );
   })();
 
@@ -259,7 +263,15 @@ export function BibleChapterReader({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     overflow: "hidden",
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  listFooter: {
+    height: 40,
   },
   centered: {
     minHeight: 200,

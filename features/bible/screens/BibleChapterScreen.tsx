@@ -6,8 +6,7 @@ import { useBibleChapterScreenState } from "@/features/bible/hooks/useBibleChapt
 import type { BibleChapterScreenProps } from "@/features/bible/types";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export function BibleChapterScreen() {
@@ -44,10 +43,6 @@ export function BibleChapterScreenView({
   onChangeSettings,
   verseTextStyle,
 }: BibleChapterScreenProps) {
-  const [scrollY, setScrollY] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(0);
-  const viewportAnchorY = scrollY + Math.max(80, viewportHeight * 0.42);
-
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.stickyHeader}>
@@ -82,14 +77,7 @@ export function BibleChapterScreenView({
         <Text style={styles.readerHint}>READER</Text>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        onLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
-        onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
-        scrollEventThrottle={16}
-      >
+      <View style={styles.readerWrap}>
         <BibleChapterReader
           loadState={loadState}
           verses={verses}
@@ -101,11 +89,9 @@ export function BibleChapterScreenView({
           onGoNextChapter={onGoNextChapter}
           prevChapterLabel={prevChapterLabel}
           nextChapterLabel={nextChapterLabel}
-          viewportAnchorY={viewportAnchorY}
           verseTextStyle={verseTextStyle}
         />
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      </View>
 
       <BottomDrawer
         visible={settingsVisible}
@@ -190,8 +176,7 @@ const styles = StyleSheet.create({
   scroll: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+  readerWrap: {
+    flex: 1,
   },
 });
