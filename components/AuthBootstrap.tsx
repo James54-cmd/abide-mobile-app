@@ -20,6 +20,34 @@ function syncStoreFromSession(session: {
   });
 }
 
+/**
+ * `getSession()` only reads local storage. `getUser()` hits Supabase Auth so we drop
+ * stale sessions (deleted user, revoked session, invalid JWT) instead of staying "logged in".
+ * Skip sign-out on retryable / 5xx errors so offline users are not kicked.
+ */
+async function validateStoredSessionWithServer() {
+  const {
+    data: { session }
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return;
+
+  const {
+    data: { user },
+    error
+  } = await supabase.auth.getUser();
+
+  if (user) return;
+  if (!error) return;
+
+  const name = "name" in error ? String((error as { name?: string }).name) : "";
+  if (name === "AuthRetryableFetchError") return;
+
+  const status = "status" in error ? (error as { status?: number }).status : undefined;
+  if (status !== undefined && status >= 500) return;
+
+  await supabase.auth.signOut();
+}
+
 /** Keeps Zustand in sync with Supabase session and sends authed users to the main tabs. */
 export function AuthBootstrap() {
   useEffect(() => {
@@ -28,6 +56,7 @@ export function AuthBootstrap() {
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         useAuthStore.getState().clearAuth();
+        router.replace("/");
         return;
       }
       if (!session?.user) return;
@@ -36,6 +65,8 @@ export function AuthBootstrap() {
         router.replace("/(tabs)/home");
       }
     });
+
+    void validateStoredSessionWithServer();
 
     return () => {
       subscription.unsubscribe();
