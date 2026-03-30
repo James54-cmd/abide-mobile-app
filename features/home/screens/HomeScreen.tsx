@@ -1,116 +1,240 @@
 import { colors } from "@/constants/theme";
 import { useHomeScreenState } from "@/features/home/hooks/useHomeScreenState";
+import type { DevotionalModuleKind, HomeScreenProps } from "@/features/home/types";
 import { Feather } from "@expo/vector-icons";
+import type { ComponentProps } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
-}
+type FeatherName = ComponentProps<typeof Feather>["name"];
 
-function StreakFlame({ days }: { days: number }) {
-  return (
-    <View style={styles.streakPill}>
-      <Text style={{ fontSize: 14 }}>🔥</Text>
-      <Text style={styles.streakText}>{days}-day streak</Text>
-    </View>
-  );
+function moduleIcon(kind: DevotionalModuleKind): FeatherName {
+  switch (kind) {
+    case "quote":
+      return "feather";
+    case "passage":
+      return "book-open";
+    case "devotional":
+      return "message-square";
+    case "prayer":
+      return "heart";
+    default:
+      return "circle" as FeatherName;
+  }
 }
 
 export function HomeScreen() {
-  const {
-    name,
-    verse,
-    streakDays,
-    conversations,
-    onHeartPress,
-    onConversationPress,
-    onSettingsPress,
-  } = useHomeScreenState();
+  return <HomeScreenView {...useHomeScreenState()} />;
+}
 
-  const firstName = name.split(" ")[0];
-  const greeting = getGreeting();
-
+export function HomeScreenView({
+  userInitial,
+  headerTitle,
+  streakCount,
+  weekDays,
+  calendarLinkLabel,
+  onCalendarPress,
+  onCommunityPress,
+  dateLabel,
+  dailyTopicTitle,
+  dailySectionLabel,
+  onFavoritePress,
+  modules,
+  onModulePress,
+  onPassageListen,
+  onPassageRead,
+  onPrimaryPromptPress,
+  primaryPromptTitle,
+  primaryPromptSubtitle,
+  conversations,
+  onConversationPress,
+  onSettingsPress,
+}: HomeScreenProps) {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.greetingRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greetingLabel}>{greeting}</Text>
-            <Text style={styles.greetingName}>{firstName} ✦</Text>
+      <View style={styles.stickyHeader}>
+        <View style={styles.topBar}>
+          <View style={styles.topBarLeft}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{userInitial}</Text>
+            </View>
           </View>
-          <View style={styles.headerActions}>
-            <View style={styles.treeBadge}>
-              <Text style={{ fontSize: 22 }}>🌳</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {headerTitle}
+          </Text>
+          <View style={styles.topBarRight}>
+            <View style={styles.streakPill}>
+              <Feather name="zap" size={14} color={colors.gold} />
+              <Text style={styles.streakPillText}>{streakCount}</Text>
             </View>
             <Pressable
-              style={styles.iconBadge}
+              style={styles.iconCircle}
+              onPress={onCommunityPress}
+              accessibilityRole="button"
+              accessibilityLabel="Community"
+            >
+              <Feather name="users" size={18} color={colors.ink} />
+            </Pressable>
+            <Pressable
+              style={styles.iconCircle}
               onPress={onSettingsPress}
               accessibilityRole="button"
               accessibilityLabel="Settings"
             >
-              <Feather name="settings" size={20} color={colors.gold} />
+              <Feather name="settings" size={18} color={colors.gold} />
             </Pressable>
           </View>
         </View>
 
-        <View style={styles.verseCard}>
-          <View style={styles.verseAccentBar} />
-          <View style={styles.verseInner}>
-            <Text style={styles.verseLabel}>{"TODAY'S VERSE"}</Text>
-            <Text style={styles.verseText}>&ldquo;{verse.text}&rdquo;</Text>
-            <View style={styles.verseReferenceRow}>
-              <View style={styles.verseDivider} />
-              <Text style={styles.verseReference}>{verse.reference}</Text>
+        <View style={styles.weekRow}>
+          {weekDays.map((d) => (
+            <View
+              key={d.id}
+              style={[styles.weekDay, d.highlighted && styles.weekDayActive]}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              <Text style={[styles.weekDayText, d.highlighted && styles.weekDayTextActive]}>
+                {d.label}
+              </Text>
             </View>
-          </View>
-        </View>
-
-        <View style={styles.streakRow}>
-          <StreakFlame days={streakDays} />
-          <Text style={styles.streakHint}>Keep going — you&apos;re building something beautiful.</Text>
+          ))}
         </View>
 
         <Pressable
-          style={({ pressed }) => [styles.heartPrompt, pressed && { opacity: 0.85 }]}
-          onPress={onHeartPress}
+          onPress={onCalendarPress}
           accessibilityRole="button"
-          accessibilityLabel="What's on your heart today?"
+          accessibilityLabel={calendarLinkLabel}
+          style={styles.calendarLink}
         >
-          <View style={styles.heartPromptInner}>
-            <View>
-              <Text style={styles.heartPromptTitle}>What&apos;s on your heart?</Text>
-              <Text style={styles.heartPromptSub}>Start a conversation with Abide</Text>
+          <Text style={styles.calendarLinkText}>{calendarLinkLabel}</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.sheet}>
+          <View style={styles.sheetHeader}>
+            <View style={styles.sheetHeaderLeft}>
+              <Text style={styles.dateLabel}>{dateLabel}</Text>
+              <Text style={styles.topicTitle}>{dailyTopicTitle}</Text>
+              <Text style={styles.dailySectionLabel}>{dailySectionLabel}</Text>
             </View>
-            <View style={styles.heartPromptIcon}>
+            <Pressable
+              onPress={onFavoritePress}
+              accessibilityRole="button"
+              accessibilityLabel="Favorite or save"
+              hitSlop={10}
+            >
+              <Feather name="heart" size={22} color={colors.muted} />
+            </Pressable>
+          </View>
+
+          <View>
+            {modules.map((m, index) => (
+              <View
+                key={m.id}
+                style={[styles.moduleCard, index > 0 && styles.moduleCardSpacing]}
+              >
+                <View style={styles.moduleAccent} />
+                <View style={styles.moduleInner}>
+                  <Pressable
+                    onPress={() => onModulePress?.(m.id, m.kind)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${m.title}${m.durationMinutes != null ? `, ${m.durationMinutes} minutes` : ""}`}
+                  >
+                    <View style={styles.moduleRow}>
+                      <View style={styles.moduleIconWrap}>
+                        <Feather name={moduleIcon(m.kind)} size={18} color={colors.gold} />
+                      </View>
+                      <Text
+                        style={[
+                          styles.moduleTitle,
+                          m.kind === "passage" && styles.moduleTitleAccent,
+                        ]}
+                      >
+                        {m.title}
+                      </Text>
+                      {m.durationMinutes != null ? (
+                        <Text style={styles.moduleMeta}>{m.durationMinutes} min</Text>
+                      ) : (
+                        <View style={styles.moduleMetaSpacer} />
+                      )}
+                      {m.completed ? (
+                        <View style={styles.doneBadge}>
+                          <Feather name="check" size={14} color={colors.white} />
+                        </View>
+                      ) : (
+                        <Feather name="chevron-right" size={16} color={colors.muted} style={{ opacity: 0.45 }} />
+                      )}
+                    </View>
+                  </Pressable>
+
+                  {m.kind === "passage" && m.passageReference ? (
+                    <View style={styles.passageBody}>
+                      <Text style={styles.passageRef}>{m.passageReference}</Text>
+                      <View style={styles.passageActions}>
+                        <Pressable
+                          style={styles.pillDark}
+                          onPress={() => onPassageListen?.(m.id)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Listen to passage"
+                        >
+                          <Text style={styles.pillDarkText}>✦ LISTEN</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.pillDark}
+                          onPress={() => onPassageRead?.(m.id)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Read passage"
+                        >
+                          <Text style={styles.pillDarkText}>READ</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [styles.primaryPrompt, pressed && { opacity: 0.9 }]}
+          onPress={onPrimaryPromptPress}
+          accessibilityRole="button"
+          accessibilityLabel={primaryPromptTitle}
+        >
+          <View style={styles.primaryPromptInner}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.primaryPromptTitle}>{primaryPromptTitle}</Text>
+              <Text style={styles.primaryPromptSub}>{primaryPromptSubtitle}</Text>
+            </View>
+            <View style={styles.primaryPromptIcon}>
               <Feather name="edit-3" size={18} color={colors.gold} />
             </View>
           </View>
         </Pressable>
 
-        {conversations.length > 0 && (
+        {conversations.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Recent</Text>
               <View style={styles.sectionLine} />
             </View>
-
             {conversations.slice(0, 3).map((item, index) => (
               <Pressable
                 key={item.id}
                 style={({ pressed }) => [
                   styles.convCard,
                   index > 0 && { marginTop: 10 },
-                  pressed && { opacity: 0.8 },
+                  pressed && { opacity: 0.85 },
                 ]}
-                onPress={() => onConversationPress(item.id)}
+                onPress={() => onConversationPress?.(item.id)}
                 accessibilityRole="button"
                 accessibilityLabel={`Open conversation ${item.title}`}
               >
@@ -125,9 +249,9 @@ export function HomeScreen() {
               </Pressable>
             ))}
           </View>
-        )}
+        ) : null}
 
-        <View style={{ height: 32 }} />
+        <View style={{ height: 28 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -138,171 +262,296 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.parchment,
   },
+  stickyHeader: {
+    backgroundColor: colors.parchment,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(140,123,106,0.18)",
+    zIndex: 1,
+  },
   scroll: {
     flex: 1,
     backgroundColor: colors.parchment,
   },
-  content: {
+  scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: 12,
     flexGrow: 1,
   },
 
-  greetingRow: {
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
-    marginBottom: 20,
+    marginBottom: 18,
   },
-  headerActions: {
+  topBarLeft: {
+    width: 44,
+    alignItems: "flex-start",
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(201,151,58,0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    fontFamily: "sans-medium",
+    fontSize: 16,
+    color: colors.ink,
+  },
+  headerTitle: {
+    flex: 1,
+    fontFamily: "sans-medium",
+    fontSize: 17,
+    color: colors.ink,
+    textAlign: "center",
+    paddingHorizontal: 4,
+  },
+  topBarRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-  },
-  greetingLabel: {
-    fontFamily: "sans",
-    fontSize: 13,
-    color: colors.muted,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-    marginBottom: 2,
-  },
-  greetingName: {
-    fontFamily: "serif",
-    fontSize: 32,
-    color: colors.ink,
-    lineHeight: 36,
-  },
-  treeBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(201,151,58,0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(201,151,58,0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  verseCard: {
-    borderRadius: 16,
-    backgroundColor: "#FFFAF4",
-    borderWidth: 1,
-    borderColor: "rgba(201,151,58,0.2)",
-    overflow: "hidden",
-    shadowColor: "rgba(44,31,14,0.08)",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 3,
-    marginBottom: 16,
-    flexDirection: "row",
-  },
-  verseAccentBar: {
-    width: 4,
-    backgroundColor: colors.gold,
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-  },
-  verseInner: {
-    flex: 1,
-    padding: 20,
-  },
-  verseLabel: {
-    fontFamily: "sans",
-    fontSize: 10,
-    letterSpacing: 2,
-    color: colors.gold,
-    marginBottom: 10,
-  },
-  verseText: {
-    fontFamily: "serif",
-    fontSize: 19,
-    lineHeight: 28,
-    color: colors.ink,
-    fontStyle: "italic",
-  },
-  verseReferenceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 14,
-    gap: 10,
-  },
-  verseDivider: {
-    width: 24,
-    height: 1,
-    backgroundColor: "rgba(201,151,58,0.4)",
-  },
-  verseReference: {
-    fontFamily: "sans-medium",
-    fontSize: 12,
-    color: colors.muted,
-    letterSpacing: 0.3,
-  },
-
-  streakRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 16,
+    minWidth: 132,
+    justifyContent: "flex-end",
   },
   streakPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(201,151,58,0.1)",
+    gap: 4,
+    backgroundColor: colors.white,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 20,
-    paddingVertical: 5,
-    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "rgba(201,151,58,0.25)",
   },
-  streakText: {
+  streakPillText: {
     fontFamily: "sans-medium",
     fontSize: 13,
     color: colors.ink,
   },
-  streakHint: {
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(140,123,106,0.12)",
+  },
+
+  weekRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+    marginBottom: 10,
+  },
+  weekDay: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  weekDayActive: {
+    backgroundColor: colors.gold,
+  },
+  weekDayText: {
+    fontFamily: "sans-medium",
+    fontSize: 12,
+    color: colors.muted,
+  },
+  weekDayTextActive: {
+    color: colors.white,
+  },
+
+  calendarLink: {
+    alignSelf: "center",
+    paddingVertical: 4,
+  },
+  calendarLinkText: {
+    fontFamily: "sans-medium",
+    fontSize: 10,
+    letterSpacing: 2,
+    color: colors.gold,
+  },
+
+  sheet: {
+    backgroundColor: colors.cream,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 22,
+    marginHorizontal: -4,
+    shadowColor: "rgba(44,31,14,0.07)",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: "rgba(201,151,58,0.12)",
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 18,
+  },
+  sheetHeaderLeft: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  dateLabel: {
+    fontFamily: "sans-medium",
+    fontSize: 12,
+    color: colors.ink,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  topicTitle: {
+    fontFamily: "serif",
+    fontSize: 28,
+    lineHeight: 34,
+    color: colors.ink,
+    marginBottom: 6,
+  },
+  dailySectionLabel: {
+    fontFamily: "sans",
+    fontSize: 10,
+    letterSpacing: 2,
+    color: colors.muted,
+  },
+
+  moduleCard: {
+    flexDirection: "row",
+    borderRadius: 16,
+    backgroundColor: colors.white,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(201,151,58,0.14)",
+    shadowColor: "rgba(44,31,14,0.06)",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  moduleCardSpacing: {
+    marginTop: 12,
+  },
+  moduleAccent: {
+    width: 4,
+    backgroundColor: colors.gold,
+  },
+  moduleInner: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  moduleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  moduleIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(201,151,58,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  moduleTitle: {
+    flex: 1,
+    fontFamily: "sans-medium",
+    fontSize: 15,
+    color: colors.ink,
+  },
+  moduleTitleAccent: {
+    color: colors.gold,
+  },
+  moduleMeta: {
     fontFamily: "sans",
     fontSize: 12,
     color: colors.muted,
-    flex: 1,
-    lineHeight: 16,
+  },
+  moduleMetaSpacer: {
+    width: 36,
+  },
+  doneBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.teal,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  heartPrompt: {
+  passageBody: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(140,123,106,0.15)",
+  },
+  passageRef: {
+    fontFamily: "serif",
+    fontSize: 22,
+    lineHeight: 30,
+    color: colors.ink,
+    marginBottom: 14,
+  },
+  passageActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  pillDark: {
+    flex: 1,
+    backgroundColor: colors.ink,
+    borderRadius: 999,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  pillDarkText: {
+    fontFamily: "sans-medium",
+    fontSize: 13,
+    color: colors.white,
+    letterSpacing: 0.5,
+  },
+
+  primaryPrompt: {
+    marginTop: 22,
     borderRadius: 16,
     backgroundColor: colors.gold,
-    marginBottom: 28,
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.28,
     shadowRadius: 14,
     elevation: 5,
   },
-  heartPromptInner: {
+  primaryPromptInner: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingVertical: 18,
     paddingHorizontal: 20,
   },
-  heartPromptTitle: {
+  primaryPromptTitle: {
     fontFamily: "sans-medium",
     fontSize: 16,
-    color: "#fff",
+    color: colors.white,
     marginBottom: 2,
   },
-  heartPromptSub: {
+  primaryPromptSub: {
     fontFamily: "sans",
     fontSize: 12,
-    color: "rgba(255,255,255,0.75)",
+    color: "rgba(255,255,255,0.78)",
   },
-  heartPromptIcon: {
+  primaryPromptIcon: {
     width: 38,
     height: 38,
     borderRadius: 19,
@@ -312,6 +561,7 @@ const styles = StyleSheet.create({
   },
 
   section: {
+    marginTop: 24,
     marginBottom: 8,
   },
   sectionHeader: {
@@ -330,13 +580,12 @@ const styles = StyleSheet.create({
   sectionLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "rgba(140,123,106,0.2)",
+    backgroundColor: colors.dividerMuted,
   },
-
   convCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFAF4",
+    backgroundColor: colors.cream,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "rgba(201,151,58,0.12)",

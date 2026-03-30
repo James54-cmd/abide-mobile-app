@@ -5,13 +5,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        parchment: "#FAF7F2",
+        parchment: "#EDE8E0",
         ink: "#2C1F0E",
         gold: "#C9973A",
         muted: "#8C7B6A",
         teal: "#1D9E75",
         amber: "#EF9F27",
-        cream: "#F5F0E8",
+        cream: "#FAF7F2",
         "dark-bg": "#1A1410",
         "dark-card": "#231E18"
       },

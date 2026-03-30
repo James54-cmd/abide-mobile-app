@@ -26,8 +26,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# skill doc
-SKILL.md
+# documentation
+*.md
 
 # expo
 .expo/

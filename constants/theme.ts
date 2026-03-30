@@ -1,11 +1,16 @@
+/** Aligned with FRONTEND.md — warm editorial devotional palette */
 export const colors = {
-  parchment: "#FAF7F2",
+  /** Screen background (warm parchment) */
+  parchment: "#EDE8E0",
   ink: "#2C1F0E",
   gold: "#C9973A",
   muted: "#8C7B6A",
   teal: "#1D9E75",
   amber: "#EF9F27",
-  cream: "#F5F0E8",
+  /** Elevated cards / “today” sheet */
+  cream: "#FAF7F2",
+  /** Legacy alias — prefer `cream` for cards */
+  creamLegacy: "#F5F0E8",
   /** Floating inputs: slightly lifted surface when focused */
   creamFocused: "#FDF8F1",
   /** Floating inputs: focus ring (gold @ ~55% alpha) */
