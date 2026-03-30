@@ -99,7 +99,13 @@ export function LoginScreen() {
           />
         </View>
 
-        <Pressable className="mt-2 self-end" hitSlop={8}>
+        <Pressable
+          className="mt-2 self-end py-2"
+          hitSlop={12}
+          onPress={() => router.push("/(auth)/forgot-password")}
+          accessibilityRole="button"
+          accessibilityLabel="Forgot password"
+        >
           <Text style={{ fontSize: 13, color: colors.muted, fontFamily: "sans" }}>
             Forgot password?
           </Text>
