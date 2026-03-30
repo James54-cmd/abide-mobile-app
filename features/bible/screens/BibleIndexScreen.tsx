@@ -1,9 +1,11 @@
 import { colors } from "@/constants/theme";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useBibleIndexScreenState } from "@/features/bible/hooks/useBibleIndexScreenState";
 import type { BibleIndexScreenProps } from "@/features/bible/types";
 import { Feather } from "@expo/vector-icons";
 import { BibleBookRow as BibleBookRowComponent } from "@/features/bible/components/BibleBookRow";
 import { TestamentTabs } from "@/features/bible/components/TestamentTabs";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -34,6 +36,25 @@ export function BibleIndexScreenView({
   onSelectChapter,
   onRetry,
 }: BibleIndexScreenProps) {
+  const [minLoaderElapsed, setMinLoaderElapsed] = useState(false);
+  const isInitialLoading = loadState === "loading" && books.length === 0;
+  const showInitialLoader = isInitialLoading || !minLoaderElapsed;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setMinLoaderElapsed(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showInitialLoader) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+        <View style={styles.pageLoaderWrap}>
+          <PageLoader />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.stickyHeader}>
@@ -63,12 +84,7 @@ export function BibleIndexScreenView({
           ) : null
         }
         ListEmptyComponent={
-          loadState === "loading" ? (
-            <View style={styles.stateWrap}>
-              <ActivityIndicator size="large" color={colors.gold} />
-              <Text style={styles.stateHint}>Loading books…</Text>
-            </View>
-          ) : loadState === "error" ? (
+          loadState === "error" ? (
             <View style={styles.stateWrap}>
               <Feather name="wifi-off" size={34} color={colors.muted} style={{ opacity: 0.6 }} />
               <Text style={styles.stateTitle}>Couldn&apos;t load books</Text>
@@ -106,6 +122,11 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.parchment,
+  },
+  pageLoaderWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   stickyHeader: {
     paddingHorizontal: 20,

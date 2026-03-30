@@ -1,10 +1,10 @@
 import { colors } from "@/constants/theme";
+import { PageLoader } from "@/components/ui/PageLoader";
 import type { BibleChapterLoadState, BibleVerseLine } from "@/features/bible/types";
 import { Feather } from "@expo/vector-icons";
 import FontText from "react-native-fontext";
 import { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -150,12 +150,7 @@ export function BibleChapterReader({
   const content = (() => {
     if (loadState === "loading") {
       return (
-        <View style={styles.centered} accessibilityLabel="Loading chapter">
-          <ActivityIndicator size="large" color={colors.gold} />
-          <FontText style={styles.hint} computeFont={passthroughComputeFont}>
-            Opening scripture...
-          </FontText>
-        </View>
+        <PageLoader />
       );
     }
 
