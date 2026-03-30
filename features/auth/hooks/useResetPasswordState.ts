@@ -1,4 +1,10 @@
 import { PASSWORD_MIN_LENGTH } from "@/features/auth/validation";
+import { setPostSignOutRedirect } from "@/lib/auth/postSignOutRedirect";
+import {
+  clearSignedInHomeNavigationSuppression,
+  suppressNextSignedInHomeNavigation,
+} from "@/lib/auth/signedInNavigationGate";
+import { signOutUser } from "@/lib/supabase/authSession";
 import { updatePassword } from "@/lib/supabase/emailAuth";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -10,11 +16,34 @@ export function useResetPasswordState() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFieldValidation, setShowFieldValidation] = useState(false);
+  const [phase, setPhase] = useState<"form" | "success">("form");
+
+  useEffect(() => {
+    return () => {
+      clearSignedInHomeNavigationSuppression();
+    };
+  }, []);
 
   useEffect(() => {
     setShowFieldValidation(false);
     setError(null);
   }, [password, confirmPassword]);
+
+  const runSignOutAndLogin = useCallback(async () => {
+    setPostSignOutRedirect("/(auth)/login");
+    const out = await signOutUser();
+    if (!out.ok) {
+      setError(out.message);
+      setPhase("form");
+      clearSignedInHomeNavigationSuppression();
+      return;
+    }
+    clearSignedInHomeNavigationSuppression();
+  }, []);
+
+  const onContinueToLogin = useCallback(() => {
+    void runSignOutAndLogin();
+  }, [runSignOutAndLogin]);
 
   const passwordInvalid =
     showFieldValidation &&
@@ -46,16 +75,18 @@ export function useResetPasswordState() {
     setError(null);
     setLoading(true);
     try {
+      suppressNextSignedInHomeNavigation();
       const result = await updatePassword(password);
       if (!result.ok) {
+        clearSignedInHomeNavigationSuppression();
         setError(result.message);
         return;
       }
-      router.replace("/(tabs)/home");
+      setPhase("success");
     } finally {
       setLoading(false);
     }
-  }, [confirmPassword, password, router]);
+  }, [confirmPassword, password]);
 
   return {
     router,
@@ -70,5 +101,7 @@ export function useResetPasswordState() {
     passwordErrorMessage,
     confirmErrorMessage,
     onSubmit,
+    phase,
+    onContinueToLogin,
   };
 }

@@ -1,5 +1,6 @@
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { FloatingLabelInput } from "@/components/ui/FloatingLabelInput";
+import { AuthSuccessState } from "@/features/auth/components/AuthSuccessState";
 import { colors } from "@/constants/theme";
 import { useResetPasswordState } from "@/features/auth/hooks/useResetPasswordState";
 import { PASSWORD_MIN_LENGTH } from "@/features/auth/validation";
@@ -28,7 +29,29 @@ export function ResetPasswordScreen() {
     passwordErrorMessage,
     confirmErrorMessage,
     onSubmit,
+    phase,
+    onContinueToLogin,
   } = useResetPasswordState();
+
+  if (phase === "success") {
+    return (
+      <SafeAreaView className="flex-1 bg-parchment">
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={() => void onContinueToLogin()}
+          accessibilityRole="button"
+          accessibilityLabel="Continue to sign in. Tap anywhere to go to login."
+        >
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <AuthSuccessState
+              title="Your password has been successfully reset."
+              subtitle={"Tap anywhere to sign in — you'll use your new password."}
+            />
+          </View>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-parchment" style={{ paddingHorizontal: 24 }}>

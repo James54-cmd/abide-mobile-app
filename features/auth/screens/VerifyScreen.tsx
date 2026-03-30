@@ -1,5 +1,6 @@
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { FloatingLabelInput } from "@/components/ui/FloatingLabelInput";
+import { AuthSuccessState } from "@/features/auth/components/AuthSuccessState";
 import { colors } from "@/constants/theme";
 import { useVerifyScreenState } from "@/features/auth/hooks/useVerifyScreenState";
 import { OTP_CODE_LENGTH } from "@/features/auth/validation";
@@ -53,14 +54,42 @@ export function VerifyScreen() {
     codeErrorMessage,
     onVerify,
     onResend,
+    onContinueToHome,
+    verificationPhase,
+    isLockedOut,
+    hasResend,
+    isRegistrationKind,
   } = useVerifyScreenState({ initialEmailParam, kind });
 
   const isInvite = kind === "invite";
-  const titleLine1 = isInvite ? "Enter your" : "Verify your";
-  const titleLine2 = isInvite ? "Invite code" : "Email";
+  const isRecovery = kind === "recovery";
+  const titleLine1 = isInvite ? "Enter your" : isRecovery ? "Reset your" : "Verify your";
+  const titleLine2 = isInvite ? "Invite code" : isRecovery ? "Password" : "Email";
   const subtitle = isInvite
     ? `Use the ${OTP_CODE_LENGTH}-digit code from your invitation email. You can stay in the app—no link required.`
-    : `Enter the ${OTP_CODE_LENGTH}-digit code we emailed you. No need to open a browser link.`;
+    : isRecovery
+      ? `Enter the ${OTP_CODE_LENGTH}-digit code from your password reset email.`
+      : `Enter the ${OTP_CODE_LENGTH}-digit code we emailed you. No need to open a browser link.`;
+
+  if (verificationPhase === "success" && isRegistrationKind) {
+    return (
+      <SafeAreaView className="flex-1 bg-parchment">
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={onContinueToHome}
+          accessibilityRole="button"
+          accessibilityLabel="Continue to home. Tap anywhere to open Abide."
+        >
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <AuthSuccessState
+              title="Your email has been successfully verified."
+              subtitle="Tap anywhere to continue to Abide."
+            />
+          </View>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-parchment" style={{ paddingHorizontal: 24 }}>
@@ -202,7 +231,7 @@ export function VerifyScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="next"
-            editable={!hasLockedEmail}
+            editable={!hasLockedEmail && !isLockedOut}
             error={emailInvalid}
             errorMessage={emailErrorMessage}
           />
@@ -217,6 +246,7 @@ export function VerifyScreen() {
             onSubmitEditing={() => void onVerify()}
             textContentType="oneTimeCode"
             autoComplete="one-time-code"
+            editable={!isLockedOut}
             error={codeInvalid}
             errorMessage={codeErrorMessage}
             inputStyle={{
@@ -244,7 +274,7 @@ export function VerifyScreen() {
             elevation: 4,
           }}
           onPress={() => void onVerify()}
-          disabled={loading}
+          disabled={loading || isLockedOut}
           accessibilityRole="button"
           accessibilityLabel="Verify"
         >
@@ -258,7 +288,7 @@ export function VerifyScreen() {
         </Pressable>
 
         {/* Resend */}
-        {kind === "signup" ? (
+        {hasResend ? (
           <Pressable
             style={{ marginTop: 16, paddingVertical: 6, alignItems: "center" }}
             onPress={() => void onResend()}

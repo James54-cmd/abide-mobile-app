@@ -1,7 +1,8 @@
+import { consumePostSignOutRedirect } from "@/lib/auth/postSignOutRedirect";
 import { isSignedInHomeNavigationSuppressed } from "@/lib/auth/signedInNavigationGate";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/useAuthStore";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { useEffect } from "react";
 
 function syncStoreFromSession(session: {
@@ -57,13 +58,18 @@ export function AuthBootstrap() {
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         useAuthStore.getState().clearAuth();
-        router.replace("/");
+        const next = consumePostSignOutRedirect();
+        router.replace((next ?? "/") as Href);
         return;
       }
       if (!session?.user) return;
       syncStoreFromSession(session);
       if (event === "INITIAL_SESSION") {
         router.replace("/(tabs)/home");
+        return;
+      }
+      // `updateUser({ password })` and token refresh sync the session but must not send users to tabs.
+      if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         return;
       }
       if (event === "SIGNED_IN") {

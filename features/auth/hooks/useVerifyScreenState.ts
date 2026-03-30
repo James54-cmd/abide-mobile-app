@@ -1,4 +1,3 @@
-import { OTP_SUCCESS_DISPLAY_MS } from "@/constants/auth";
 import { useEmailOtpChallenge } from "@/features/auth/hooks/useEmailOtpChallenge";
 import { isValidEmail, OTP_CODE_LENGTH } from "@/features/auth/validation";
 import { clearSignedInHomeNavigationSuppression, suppressNextSignedInHomeNavigation } from "@/lib/auth/signedInNavigationGate";
@@ -35,7 +34,7 @@ export function useVerifyScreenState({
   const [showFieldValidation, setShowFieldValidation] = useState(false);
   const [verificationPhase, setVerificationPhase] = useState<"form" | "success">("form");
   const emailRef = useRef<TextInput>(null);
-  const successNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const registrationCompleteRef = useRef(false);
 
   const {
     code,
@@ -50,6 +49,7 @@ export function useVerifyScreenState({
   } = useEmailOtpChallenge();
   const hasResend = kind === "signup" || kind === "recovery";
   const hasLockedEmail = initialEmailParam.length > 0;
+  const isRegistrationKind = kind === "signup" || kind === "invite";
 
   useEffect(() => {
     if (initialEmailParam) setEmail(initialEmailParam);
@@ -69,10 +69,16 @@ export function useVerifyScreenState({
 
   useEffect(() => {
     return () => {
-      if (successNavTimerRef.current) clearTimeout(successNavTimerRef.current);
       clearSignedInHomeNavigationSuppression();
     };
   }, []);
+
+  const continueToHomeAfterRegistration = useCallback(() => {
+    if (registrationCompleteRef.current) return;
+    registrationCompleteRef.current = true;
+    clearSignedInHomeNavigationSuppression();
+    router.replace("/(tabs)/home");
+  }, [router]);
 
   const emailInvalid = showFieldValidation && (!email.trim() || !isValidEmail(email));
   const codeInvalid =
@@ -110,16 +116,15 @@ export function useVerifyScreenState({
         setError(n >= maxAttempts ? lockoutMessage : result.message);
         return;
       }
-      setVerificationPhase("success");
-      successNavTimerRef.current = setTimeout(() => {
-        successNavTimerRef.current = null;
+
+      if (kind === "recovery") {
         clearSignedInHomeNavigationSuppression();
-        if (kind === "recovery") {
-          router.replace("/(auth)/reset-password");
-        } else {
-          router.replace("/(tabs)/home");
-        }
-      }, OTP_SUCCESS_DISPLAY_MS);
+        router.replace("/(auth)/reset-password");
+        return;
+      }
+
+      registrationCompleteRef.current = false;
+      setVerificationPhase("success");
     } finally {
       setLoading(false);
     }
@@ -134,6 +139,10 @@ export function useVerifyScreenState({
     router,
     verificationPhase,
   ]);
+
+  const onContinueToHome = useCallback(() => {
+    continueToHomeAfterRegistration();
+  }, [continueToHomeAfterRegistration]);
 
   const onResend = useCallback(async () => {
     if (!hasResend || isLockedOut) return;
@@ -194,10 +203,12 @@ export function useVerifyScreenState({
     codeErrorMessage,
     onVerify,
     onResend,
+    onContinueToHome,
     verificationPhase,
     isLockedOut,
     attemptsRemaining,
     maxVerifyAttempts: maxAttempts,
     hasResend,
+    isRegistrationKind,
   };
 }
