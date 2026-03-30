@@ -97,28 +97,31 @@ export function useBibleChapterNavigation({
     return null;
   }, [books, canGoNextChapter, chapter, currentBookLabel, currentMaxChapter, nextBookId]);
 
-  const toChapterRoute = useCallback((bookId: string, nextChapter: number): Href => {
-    return `/(tabs)/bible/${bookId.toLowerCase()}/${nextChapter}` as Href;
-  }, []);
+  const toChapterRoute = useCallback(
+    (bookId: string, nextChapter: number, direction: "forward" | "backward"): Href => {
+      return `/(tabs)/bible/${bookId.toLowerCase()}/${nextChapter}?dir=${direction}` as Href;
+    },
+    []
+  );
 
   const onGoPrevChapter = useCallback(() => {
     if (chapter > 1) {
-      router.replace(toChapterRoute(currentBookId, chapter - 1));
+      router.replace(toChapterRoute(currentBookId, chapter - 1, "backward"));
       return;
     }
     if (chapter === 1 && prevBookId && prevBookLastChapter) {
-      router.replace(toChapterRoute(prevBookId, prevBookLastChapter));
+      router.replace(toChapterRoute(prevBookId, prevBookLastChapter, "backward"));
     }
   }, [chapter, currentBookId, prevBookId, prevBookLastChapter, router, toChapterRoute]);
 
   const onGoNextChapter = useCallback(() => {
     if (currentMaxChapter === null) return;
     if (chapter < currentMaxChapter) {
-      router.replace(toChapterRoute(currentBookId, chapter + 1));
+      router.replace(toChapterRoute(currentBookId, chapter + 1, "forward"));
       return;
     }
     if (chapter === currentMaxChapter && nextBookId) {
-      router.replace(toChapterRoute(nextBookId, 1));
+      router.replace(toChapterRoute(nextBookId, 1, "forward"));
     }
   }, [chapter, currentBookId, currentMaxChapter, nextBookId, router, toChapterRoute]);
 

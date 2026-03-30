@@ -3,7 +3,7 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import type { BibleChapterLoadState, BibleVerseLine } from "@/features/bible/types";
 import { Feather } from "@expo/vector-icons";
 import FontText from "react-native-fontext";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import {
   FlatList,
   Pressable,
@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  type AnimatedStyle,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -101,6 +102,22 @@ export function BibleChapterReader({
   const nextFadeStyle = useAnimatedStyle(() => ({
     opacity: Math.max(0, Math.min(0.95, -dragX.value / PEEK_THRESHOLD)),
   }));
+
+  const prevBumpStyle = useAnimatedStyle(() => {
+    const progress = Math.max(0, Math.min(1, dragX.value / PEEK_THRESHOLD));
+    return {
+      opacity: 0.35 + progress * 0.65,
+      transform: [{ scale: 0.92 + progress * 0.1 }],
+    };
+  });
+
+  const nextBumpStyle = useAnimatedStyle(() => {
+    const progress = Math.max(0, Math.min(1, -dragX.value / PEEK_THRESHOLD));
+    return {
+      opacity: 0.35 + progress * 0.65,
+      transform: [{ scale: 0.92 + progress * 0.1 }],
+    };
+  });
 
   const showEdgeHint = useCallback(() => {
     edgeHintOpacity.value = withTiming(1, { duration: 130 });
@@ -224,11 +241,7 @@ export function BibleChapterReader({
           <>
             <Animated.View style={[styles.peekLeftFade, prevFadeStyle]} pointerEvents="none" />
             <Animated.View style={[styles.peekLeft, prevPeekStyle]} pointerEvents="none">
-              {prevChapterLabel.split("").map((char, i) => (
-                <FontText key={`prev-${i}`} style={styles.peekChar} computeFont={passthroughComputeFont}>
-                  {char === " " ? "\n" : char}
-                </FontText>
-              ))}
+              {renderPeekLabel(prevChapterLabel, "prev", prevBumpStyle)}
             </Animated.View>
           </>
         ) : null}
@@ -237,11 +250,7 @@ export function BibleChapterReader({
           <>
             <Animated.View style={[styles.peekRightFade, nextFadeStyle]} pointerEvents="none" />
             <Animated.View style={[styles.peekRight, nextPeekStyle]} pointerEvents="none">
-              {nextChapterLabel.split("").map((char, i) => (
-                <FontText key={`next-${i}`} style={styles.peekChar} computeFont={passthroughComputeFont}>
-                  {char === " " ? "\n" : char}
-                </FontText>
-              ))}
+              {renderPeekLabel(nextChapterLabel, "next", nextBumpStyle)}
             </Animated.View>
           </>
         ) : null}
@@ -253,6 +262,55 @@ export function BibleChapterReader({
         </Animated.View>
       </View>
     </GestureDetector>
+  );
+}
+
+function renderPeekLabel(
+  label: string,
+  side: "prev" | "next",
+  bumpAnimatedStyle: AnimatedStyle<Record<string, unknown>>
+) {
+  const parts = label.trim().split(/\s+/);
+  const chapterPart = parts.length > 1 ? parts[parts.length - 1] : "";
+  const bookPart = parts.length > 1 ? parts.slice(0, -1).join(" ") : parts[0] ?? "";
+  const bookChars = bookPart.replace(/\s+/g, "").split("");
+
+  const nodes: ReactNode[] = [];
+  for (let i = 0; i < bookChars.length; i += 1) {
+    nodes.push(
+      <FontText key={`${side}-book-${i}`} style={styles.peekChar} computeFont={passthroughComputeFont}>
+        {bookChars[i]}
+      </FontText>
+    );
+  }
+
+  const splitAt = Math.ceil(nodes.length / 2);
+  const topChars = nodes.slice(0, splitAt);
+  const bottomChars = nodes.slice(splitAt);
+
+  return (
+    <View style={styles.peekLabelWrap}>
+      {topChars}
+      <Animated.View
+        style={[
+          styles.peekBump,
+          side === "prev" ? styles.peekBumpPrev : styles.peekBumpNext,
+          bumpAnimatedStyle,
+        ]}
+      >
+        <Feather
+          name={side === "prev" ? "chevron-left" : "chevron-right"}
+          size={15}
+          color={colors.white}
+        />
+      </Animated.View>
+      {bottomChars}
+      {chapterPart ? (
+        <FontText key={`${side}-chapter`} style={styles.peekChapter} computeFont={passthroughComputeFont}>
+          {chapterPart}
+        </FontText>
+      ) : null}
+    </View>
   );
 }
 
@@ -350,6 +408,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  peekLabelWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
   peekLeftFade: {
     position: "absolute",
     left: 0,
@@ -367,12 +430,48 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(201,151,58,1)",
   },
   peekChar: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.white,
-    letterSpacing: 0.5,
+    letterSpacing: 0.7,
     textAlign: "center",
-    lineHeight: 17,
+    lineHeight: 18,
     textTransform: "uppercase",
+    fontFamily: "sans-medium",
+    fontWeight: "800",
+    textShadowColor: "rgba(44,31,14,0.45)",
+    textShadowOffset: { width: 0, height: 0.5 },
+    textShadowRadius: 1.5,
+  },
+  peekChapter: {
+    marginTop: 4,
+    fontSize: 14,
+    color: colors.white,
+    letterSpacing: 0.6,
+    textAlign: "center",
+    lineHeight: 18,
+    fontFamily: "sans-medium",
+    fontWeight: "800",
+    textShadowColor: "rgba(44,31,14,0.45)",
+    textShadowOffset: { width: 0, height: 0.5 },
+    textShadowRadius: 1.5,
+  },
+  peekBump: {
+    position: "absolute",
+    top: "50%",
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -15,
+    backgroundColor: "rgba(201,151,58,1)",
+    zIndex: 10,
+  },
+  peekBumpPrev: {
+    right: -26,
+  },
+  peekBumpNext: {
+    left: -26,
   },
   edgeHintWrap: {
     position: "absolute",

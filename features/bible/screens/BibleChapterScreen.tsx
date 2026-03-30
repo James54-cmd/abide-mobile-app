@@ -7,14 +7,17 @@ import type { BibleChapterScreenProps } from "@/features/bible/types";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { SlideInLeft, SlideInRight } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export function BibleChapterScreen() {
-  const { book, chapter } = useLocalSearchParams<{ book: string; chapter: string }>();
+  const { book, chapter, dir } = useLocalSearchParams<{ book: string; chapter: string; dir?: string }>();
   const ch = Number(chapter || "1") || 1;
+  const transitionDirection = dir === "backward" ? "backward" : "forward";
   return (
     <BibleChapterScreenView
       {...useBibleChapterScreenState(book ?? "", ch, "BSB")}
+      transitionDirection={transitionDirection}
     />
   );
 }
@@ -43,9 +46,14 @@ export function BibleChapterScreenView({
   onChangeSettings,
   headerTitleFontFamily,
   verseTextStyle,
-}: BibleChapterScreenProps) {
+  transitionDirection = "forward",
+}: BibleChapterScreenProps & { transitionDirection?: "forward" | "backward" }) {
+  // Opposite of swipe direction: left swipe (forward) enters from right.
+  const entering = transitionDirection === "forward" ? SlideInRight.duration(220) : SlideInLeft.duration(220);
+
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <Animated.View style={styles.safe} entering={entering}>
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.stickyHeader}>
         <View style={styles.headerRow}>
           <Pressable
@@ -110,7 +118,8 @@ export function BibleChapterScreenView({
           onChange={onChangeSettings}
         />
       </BottomDrawer>
-    </SafeAreaView>
+      </SafeAreaView>
+    </Animated.View>
   );
 }
 
