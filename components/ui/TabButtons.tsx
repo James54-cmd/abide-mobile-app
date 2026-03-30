@@ -17,7 +17,6 @@ export interface TabButtonsProps<T extends TabKey> {
   style?: ViewStyle;
 }
 
-const INDICATOR_INSET = 2;
 const ANIM_DURATION_MS = 240;
 
 export function TabButtons<T extends TabKey>({
@@ -36,7 +35,7 @@ export function TabButtons<T extends TabKey>({
 
   const translateX = useSharedValue(0);
 
-  const tabWidth = containerWidth > 0 ? (containerWidth - INDICATOR_INSET * 2) / tabCount : 0;
+  const tabWidth = containerWidth > 0 ? containerWidth / tabCount : 0;
 
   useEffect(() => {
     if (tabWidth <= 0) return;
@@ -60,7 +59,7 @@ export function TabButtons<T extends TabKey>({
         <Animated.View
           style={[
             styles.indicator,
-            { width: tabWidth, left: INDICATOR_INSET },
+            { width: tabWidth, left: 0 },
             indicatorMotion,
           ]}
         />
@@ -102,8 +101,8 @@ const styles = StyleSheet.create({
   },
   indicator: {
     position: "absolute",
-    top: 4,
-    bottom: 4,
+    top: 0,
+    bottom: 0,
     borderRadius: 999,
     backgroundColor: colors.white,
     zIndex: 0,

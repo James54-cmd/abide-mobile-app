@@ -1,9 +1,12 @@
 import { colors } from "@/constants/theme";
+import { BottomDrawer } from "@/components/ui/BottomDrawer";
 import { BibleChapterReader } from "@/features/bible/components/BibleChapterReader";
+import { BibleReaderSettingsPanel } from "@/features/bible/components/BibleReaderSettingsPanel";
 import { useBibleChapterScreenState } from "@/features/bible/hooks/useBibleChapterScreenState";
 import type { BibleChapterScreenProps } from "@/features/bible/types";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -18,6 +21,7 @@ export function BibleChapterScreen() {
 }
 
 export function BibleChapterScreenView({
+  book,
   bookLabel,
   chapter,
   translation,
@@ -26,7 +30,24 @@ export function BibleChapterScreenView({
   errorMessage,
   onRetry,
   onBack,
+  canGoPrevChapter,
+  canGoNextChapter,
+  onGoPrevChapter,
+  onGoNextChapter,
+  prevChapterLabel,
+  nextChapterLabel,
+  settingsVisible,
+  onOpenSettings,
+  onCloseSettings,
+  onChangeTranslation,
+  settings,
+  onChangeSettings,
+  verseTextStyle,
 }: BibleChapterScreenProps) {
+  const [scrollY, setScrollY] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const viewportAnchorY = scrollY + Math.max(80, viewportHeight * 0.42);
+
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.stickyHeader}>
@@ -48,7 +69,15 @@ export function BibleChapterScreenView({
               <Text style={styles.translationText}>{translation}</Text>
             </View>
           </View>
-          <View style={styles.headerRight} />
+          <Pressable
+            style={styles.headerRightBtn}
+            onPress={onOpenSettings}
+            accessibilityRole="button"
+            accessibilityLabel="Reader settings"
+            hitSlop={12}
+          >
+            <Feather name="sliders" size={20} color={colors.muted} />
+          </Pressable>
         </View>
         <Text style={styles.readerHint}>READER</Text>
       </View>
@@ -57,17 +86,39 @@ export function BibleChapterScreenView({
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
+        onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={16}
       >
-        <View style={styles.readerSheet}>
-          <BibleChapterReader
-            loadState={loadState}
-            verses={verses}
-            errorMessage={errorMessage}
-            onRetry={onRetry}
-          />
-        </View>
+        <BibleChapterReader
+          loadState={loadState}
+          verses={verses}
+          errorMessage={errorMessage}
+          onRetry={onRetry}
+          canGoPrevChapter={canGoPrevChapter}
+          canGoNextChapter={canGoNextChapter}
+          onGoPrevChapter={onGoPrevChapter}
+          onGoNextChapter={onGoNextChapter}
+          prevChapterLabel={prevChapterLabel}
+          nextChapterLabel={nextChapterLabel}
+          viewportAnchorY={viewportAnchorY}
+          verseTextStyle={verseTextStyle}
+        />
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <BottomDrawer
+        visible={settingsVisible}
+        onClose={onCloseSettings}
+        title="Reader Settings"
+      >
+        <BibleReaderSettingsPanel
+          translation={translation}
+          onChangeTranslation={onChangeTranslation}
+          settings={settings}
+          onChange={onChangeSettings}
+        />
+      </BottomDrawer>
     </SafeAreaView>
   );
 }
@@ -100,8 +151,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
   },
-  headerRight: {
+  headerRightBtn: {
     width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
   refTitle: {
     fontFamily: "serif",
@@ -139,18 +193,5 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
-  },
-  readerSheet: {
-    backgroundColor: colors.cream,
-    borderRadius: 18,
-    paddingHorizontal: 20,
-    paddingVertical: 22,
-    borderWidth: 1,
-    borderColor: "rgba(201,151,58,0.12)",
-    shadowColor: "rgba(44,31,14,0.06)",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 14,
-    elevation: 3,
   },
 });

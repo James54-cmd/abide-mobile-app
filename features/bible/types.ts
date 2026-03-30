@@ -12,6 +12,16 @@ export interface BibleVerseLine {
   text: string;
 }
 
+export type BibleFontSize = "small" | "medium" | "large" | "extra_large";
+export type BibleFontFamily = "serif" | "sans";
+export type BibleLineSpacing = "tight" | "normal" | "relaxed" | "loose";
+
+export interface BibleReaderSettings {
+  fontSize: BibleFontSize;
+  fontFamily: BibleFontFamily;
+  lineSpacing: BibleLineSpacing;
+}
+
 export interface BibleIndexScreenProps {
   books: BibleBookItem[];
   activeTestament: BibleTestament;
@@ -44,4 +54,22 @@ export interface BibleChapterScreenProps {
   errorMessage: string | null;
   onRetry: () => void;
   onBack: () => void;
+  canGoPrevChapter: boolean;
+  canGoNextChapter: boolean;
+  onGoPrevChapter: () => void;
+  onGoNextChapter: () => void;
+  prevChapterLabel: string | null;
+  nextChapterLabel: string | null;
+  /** Whether the reader settings drawer is visible. */
+  settingsVisible: boolean;
+  onOpenSettings: () => void;
+  onCloseSettings: () => void;
+  onChangeTranslation: (translation: Translation) => void;
+  settings: BibleReaderSettings;
+  onChangeSettings: (next: BibleReaderSettings) => void;
+  verseTextStyle: {
+    fontFamily: string;
+    fontSize: number;
+    lineHeight: number;
+  };
 }

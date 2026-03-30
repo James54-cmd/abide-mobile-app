@@ -1,8 +1,10 @@
 import type { BibleChapterScreenProps } from "@/features/bible/types";
-import { useGetBibleChapter } from "@/lib/api/bible/hooks";
+import { useBibleBookChaptersCatalog, useGetBibleBooks, useGetBibleChapter } from "@/lib/api/bible/hooks";
 import type { Translation } from "@/types";
-import { useRouter } from "expo-router";
-import { useCallback, useMemo } from "react";
+import { useRouter, type Href } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useBibleReaderSettingsProgress } from "@/lib/supabase/bibleReaderSettingsProgress";
+import { getReaderVerseTypographyFromSettings } from "@/features/bible/lib/readerTypography";
 
 function humanizeBookId(id: string): string {
   if (!id) return "Scripture";
@@ -20,28 +22,136 @@ export function useBibleChapterScreenState(
   chapter: number,
   translation: Translation
 ): BibleChapterScreenProps {
+  const [activeTranslation, setActiveTranslation] = useState<Translation>(translation);
   const router = useRouter();
+  const { books } = useGetBibleBooks(activeTranslation);
   const { verses, loadState, errorMessage, refetch } = useGetBibleChapter(
     book,
     chapter,
-    translation
+    activeTranslation
   );
+  const { chaptersByBook, loadBookChapters } = useBibleBookChaptersCatalog(activeTranslation);
 
   const bookLabel = useMemo(() => humanizeBookId(book), [book]);
+  const currentBookId = useMemo(() => book.trim().toUpperCase(), [book]);
+  const currentBookIndex = useMemo(
+    () => books.findIndex((b) => b.id.toUpperCase() === currentBookId),
+    [books, currentBookId]
+  );
+  const prevBookId = currentBookIndex > 0 ? books[currentBookIndex - 1]?.id.toUpperCase() : null;
+  const nextBookId =
+    currentBookIndex >= 0 && currentBookIndex < books.length - 1
+      ? books[currentBookIndex + 1]?.id.toUpperCase()
+      : null;
+
+  useEffect(() => {
+    if (currentBookId) void loadBookChapters(currentBookId);
+    if (prevBookId) void loadBookChapters(prevBookId);
+    if (nextBookId) void loadBookChapters(nextBookId);
+  }, [currentBookId, prevBookId, nextBookId, loadBookChapters]);
 
   const onBack = useCallback(() => {
     router.back();
   }, [router]);
 
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const { settings, applySettings } = useBibleReaderSettingsProgress({
+    bookId: book,
+    chapter,
+    translation: activeTranslation,
+  });
+  const verseTextStyleTokens = getReaderVerseTypographyFromSettings(settings);
+  const verseTextStyle = {
+    fontFamily: verseTextStyleTokens.fontFamily,
+    fontSize: verseTextStyleTokens.fontSizePx,
+    lineHeight: verseTextStyleTokens.lineHeightPx,
+  };
+
+  const currentBookChapters = chaptersByBook[currentBookId] ?? [];
+  const currentMaxChapter = currentBookChapters.length > 0 ? currentBookChapters[currentBookChapters.length - 1] : null;
+  const prevBookLastChapter =
+    prevBookId && (chaptersByBook[prevBookId]?.length ?? 0) > 0
+      ? chaptersByBook[prevBookId][chaptersByBook[prevBookId].length - 1]
+      : null;
+
+  const canGoPrevChapter = chapter > 1 || (chapter === 1 && !!prevBookLastChapter);
+  const canGoNextChapter =
+    currentMaxChapter !== null && (chapter < currentMaxChapter || (chapter === currentMaxChapter && !!nextBookId));
+  const currentBookLabel = useMemo(
+    () => books.find((b) => b.id.toUpperCase() === currentBookId)?.name ?? bookLabel,
+    [books, currentBookId, bookLabel]
+  );
+
+  const prevChapterLabel = useMemo(() => {
+    if (!canGoPrevChapter) return null;
+    if (chapter > 1) return `${currentBookLabel} ${chapter - 1}`;
+    if (chapter === 1 && prevBookId && prevBookLastChapter) {
+      const prevBookLabel = books.find((b) => b.id.toUpperCase() === prevBookId)?.name ?? prevBookId;
+      return `${prevBookLabel} ${prevBookLastChapter}`;
+    }
+    return null;
+  }, [books, canGoPrevChapter, chapter, currentBookLabel, prevBookId, prevBookLastChapter]);
+
+  const nextChapterLabel = useMemo(() => {
+    if (!canGoNextChapter) return null;
+    if (currentMaxChapter !== null && chapter < currentMaxChapter) return `${currentBookLabel} ${chapter + 1}`;
+    if (currentMaxChapter !== null && chapter === currentMaxChapter && nextBookId) {
+      const nextBookLabel = books.find((b) => b.id.toUpperCase() === nextBookId)?.name ?? nextBookId;
+      return `${nextBookLabel} 1`;
+    }
+    return null;
+  }, [books, canGoNextChapter, chapter, currentBookLabel, currentMaxChapter, nextBookId]);
+
+  const toChapterRoute = useCallback((bookId: string, nextChapter: number): Href => {
+    return `/(tabs)/bible/${bookId.toLowerCase()}/${nextChapter}` as Href;
+  }, []);
+
+  const onGoPrevChapter = useCallback(() => {
+    if (chapter > 1) {
+      router.replace(toChapterRoute(currentBookId, chapter - 1));
+      return;
+    }
+    if (chapter === 1 && prevBookId && prevBookLastChapter) {
+      router.replace(toChapterRoute(prevBookId, prevBookLastChapter));
+    }
+  }, [chapter, currentBookId, prevBookId, prevBookLastChapter, router, toChapterRoute]);
+
+  const onGoNextChapter = useCallback(() => {
+    if (currentMaxChapter === null) return;
+    if (chapter < currentMaxChapter) {
+      router.replace(toChapterRoute(currentBookId, chapter + 1));
+      return;
+    }
+    if (chapter === currentMaxChapter && nextBookId) {
+      router.replace(toChapterRoute(nextBookId, 1));
+    }
+  }, [chapter, currentBookId, currentMaxChapter, nextBookId, router, toChapterRoute]);
+
+  const onOpenSettings = useCallback(() => setSettingsVisible(true), []);
+  const onCloseSettings = useCallback(() => setSettingsVisible(false), []);
+
   return {
     book,
     bookLabel,
     chapter,
-    translation,
+    translation: activeTranslation,
     verses,
     loadState,
     errorMessage,
     onRetry: refetch,
-    onBack
+    onBack,
+    canGoPrevChapter,
+    canGoNextChapter,
+    onGoPrevChapter,
+    onGoNextChapter,
+    prevChapterLabel,
+    nextChapterLabel,
+    settingsVisible,
+    onOpenSettings,
+    onCloseSettings,
+    onChangeTranslation: setActiveTranslation,
+    settings,
+    onChangeSettings: applySettings,
+    verseTextStyle
   };
 }
