@@ -1,9 +1,10 @@
-import { Text, View } from "react-native";
+import { Text } from "react-native";
+import { InfoCard } from "@/components/ui/InfoCard";
 
 export function OfflineBanner() {
   return (
-    <View className="rounded-xl bg-amber px-3 py-2">
+    <InfoCard variant="warning">
       <Text className="font-sans-medium text-sm text-ink">You are offline. Showing cached content.</Text>
-    </View>
+    </InfoCard>
   );
 }

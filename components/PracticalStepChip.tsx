@@ -1,9 +1,5 @@
-import { Text, View } from "react-native";
+import { StatusChip } from "@/components/ui/InfoCard";
 
 export function PracticalStepChip({ text }: { text: string }) {
-  return (
-    <View className="rounded-xl bg-teal px-3 py-2">
-      <Text className="font-sans-medium text-sm text-white">{text}</Text>
-    </View>
-  );
+  return <StatusChip text={text} variant="step" />;
 }

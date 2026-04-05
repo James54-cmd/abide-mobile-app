@@ -51,6 +51,8 @@ export interface BibleChapterScreenProps {
   translation: Translation;
   verses: BibleVerseLine[];
   loadState: BibleChapterLoadState;
+  isFetching: boolean;
+  showInitialLoader: boolean;
   errorMessage: string | null;
   onRetry: () => void;
   onBack: () => void;
@@ -60,6 +62,8 @@ export interface BibleChapterScreenProps {
   onGoNextChapter: () => void;
   prevChapterLabel: string | null;
   nextChapterLabel: string | null;
+  /** Update reading progress (chapter/verse) in Supabase */
+  updateProgress: (verse?: number) => void;
   /** Whether the reader settings drawer is visible. */
   settingsVisible: boolean;
   onOpenSettings: () => void;

@@ -8,11 +8,13 @@ import {
 import { useBibleChapterNavigation } from "@/features/bible/hooks/useBibleChapterNavigation";
 import type { Translation } from "@/types";
 import { useCallback, useState } from "react";
-import { useBibleReaderSettingsProgress } from "@/lib/supabase/bibleReaderSettingsProgress";
+import { useBibleReaderProgressPersistence } from "@/lib/supabase/bibleReaderSettingsProgress";
+import { useBibleReaderStore } from "@/store/useBibleReaderStore";
 import { getReaderVerseTypographyFromSettings } from "@/features/bible/lib/readerTypography";
 
 /**
- * Composes data hook + navigation — no direct `fetch` / `getBibleChapter` here (SKILL.md).
+ * Feature state hook - composes data hooks + navigation (SKILL.md Rule 5).
+ * Feature hooks compose data hooks; they do not call supabase/fetch directly.
  */
 export function useBibleChapterScreenState(
   book: string,
@@ -22,7 +24,7 @@ export function useBibleChapterScreenState(
   const [activeTranslation, setActiveTranslation] = useState<Translation>(translation);
   const { translations: availableTranslations } = useGetBibleTranslations();
   const { books } = useGetBibleBooks(activeTranslation);
-  const { verses, bookLabel: chapterBookLabel, loadState, errorMessage, refetch } = useGetBibleChapter(
+  const { verses, bookLabel: chapterBookLabel, loadState, isFetching, errorMessage, refetch } = useGetBibleChapter(
     book,
     chapter,
     activeTranslation
@@ -47,11 +49,23 @@ export function useBibleChapterScreenState(
   });
 
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const { settings, applySettings } = useBibleReaderSettingsProgress({
+  
+  // Use global store for settings to persist across navigation
+  const { settings, setSettings } = useBibleReaderStore();
+  
+  // Progress persistence - only provides updateProgress function 
+  const { updateProgress } = useBibleReaderProgressPersistence({
     bookId: book,
     chapter,
     translation: activeTranslation,
+
   });
+
+  const applySettings = useCallback((newSettings: typeof settings) => {
+    setSettings(newSettings);
+    // Auto-save to Supabase when settings change (fire-and-forget)
+    void updateProgress(1);
+  }, [setSettings, updateProgress]);
   const verseTextStyleTokens = getReaderVerseTypographyFromSettings(settings);
   const verseTextStyle = {
     fontFamily: verseTextStyleTokens.fontFamily,
@@ -63,6 +77,9 @@ export function useBibleChapterScreenState(
   const onOpenSettings = useCallback(() => setSettingsVisible(true), []);
   const onCloseSettings = useCallback(() => setSettingsVisible(false), []);
 
+  // Show full-screen loader only when loading and no verses are visible yet
+  const showInitialLoader = loadState === "loading" && verses.length === 0;
+
   return {
     book,
     bookLabel,
@@ -70,6 +87,8 @@ export function useBibleChapterScreenState(
     translation: activeTranslation,
     verses,
     loadState,
+    isFetching,
+    showInitialLoader,
     errorMessage,
     onRetry: refetch,
     onBack,
@@ -86,6 +105,7 @@ export function useBibleChapterScreenState(
     onChangeTranslation: setActiveTranslation,
     settings,
     onChangeSettings: applySettings,
+    updateProgress, // Expose progress saving for navigation
     headerTitleFontFamily,
     verseTextStyle
   };

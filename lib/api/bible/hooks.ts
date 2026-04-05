@@ -5,9 +5,10 @@ import {
   getBibleBooks,
   getBibleChapter,
 } from "@/lib/api/bible/requests";
+import { useApiRequest } from "@/lib/api/hooks/useApiRequest";
 import { useAuthStore } from "@/store/useAuthStore";
 import type { Translation } from "@/types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type BibleChapterFetchState = "loading" | "ready" | "error";
 
@@ -21,58 +22,30 @@ export interface BibleBookDto {
   name: string;
 }
 
-export function useGetBibleTranslations(): {
-  translations: Translation[];
-  loadState: BibleChapterFetchState;
-  errorMessage: string | null;
-  refetch: () => void;
-} {
-  const [translations, setTranslations] = useState<Translation[]>([]);
-  const [loadState, setLoadState] = useState<BibleChapterFetchState>("loading");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [retryTick, setRetryTick] = useState(0);
+export function useGetBibleTranslations() {
+  const { data: translations, loadState, errorMessage, refetch } = useApiRequest(
+    getAvailableTranslations,
+    [],
+    "Could not load translations.",
+    []
+  );
 
-  const refetch = useCallback(() => {
-    setRetryTick((t) => t + 1);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoadState("loading");
-    setErrorMessage(null);
-
-    void (async () => {
-      try {
-        const rows = await getAvailableTranslations();
-        if (cancelled) return;
-        setTranslations(rows);
-        setLoadState("ready");
-      } catch (e) {
-        if (cancelled) return;
-        const msg =
-          e instanceof ApiError
-            ? e.message
-            : e instanceof Error
-              ? e.message
-              : "Could not load translations.";
-        setTranslations([]);
-        setErrorMessage(msg);
-        setLoadState("error");
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [retryTick]);
-
-  return { translations, loadState, errorMessage, refetch };
+  return { translations: translations ?? [], loadState, errorMessage, refetch };
 }
 
 /**
- * Data hook — owns chapter fetch + loading/error state (SKILL.md Rule 5–6).
- * Feature hooks compose this; they do not call `getBibleChapter` directly.
+ * Data hook — owns chapter fetch + loading/error state (SKILL.md Rule 6).
+ * Feature hooks compose this; they do not call `getBibleChapter` directly (Rule 5).
  */
+type CachedBibleChapter = {
+  verses: BibleVerseLineDto[];
+  bookLabel: string | null;
+};
+
+function getChapterCacheKey(book: string, chapter: number, translation: Translation): string {
+  return `${translation}::${book.trim().toLowerCase()}::${chapter}`;
+}
+
 export function useGetBibleChapter(
   book: string,
   chapter: number,
@@ -81,115 +54,130 @@ export function useGetBibleChapter(
   verses: BibleVerseLineDto[];
   bookLabel: string | null;
   loadState: BibleChapterFetchState;
+  isFetching: boolean;
   errorMessage: string | null;
   refetch: () => void;
 } {
   const jwt = useAuthStore((s) => s.jwt);
+
   const [verses, setVerses] = useState<BibleVerseLineDto[]>([]);
   const [bookLabel, setBookLabel] = useState<string | null>(null);
   const [loadState, setLoadState] = useState<BibleChapterFetchState>("loading");
+  const [isFetching, setIsFetching] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryTick, setRetryTick] = useState(0);
 
+  const cacheRef = useRef<Record<string, CachedBibleChapter>>({});
+  const activeRequestIdRef = useRef(0);
+  const hasDataRef = useRef(false);
+
   const refetch = useCallback(() => {
+    const key = getChapterCacheKey(book, chapter, translation);
+    delete cacheRef.current[key];
     setRetryTick((t) => t + 1);
-  }, []);
+  }, [book, chapter, translation]);
 
   useEffect(() => {
-    let cancelled = false;
+    const trimmedBook = book.trim();
 
-    if (!book.trim()) {
+    if (!trimmedBook) {
       setVerses([]);
       setBookLabel(null);
       setErrorMessage("Missing book.");
       setLoadState("error");
+      setIsFetching(false);
+      hasDataRef.current = false;
       return;
     }
 
-    setLoadState("loading");
+    const cacheKey = getChapterCacheKey(trimmedBook, chapter, translation);
+    const cached = cacheRef.current[cacheKey];
+    const hasVisibleData = hasDataRef.current;
+
+    if (cached) {
+      setVerses(cached.verses);
+      setBookLabel(cached.bookLabel);
+      setErrorMessage(null);
+      setLoadState("ready");
+      setIsFetching(false);
+      hasDataRef.current = cached.verses.length > 0;
+      return;
+    }
+
+    const requestId = ++activeRequestIdRef.current;
+    let cancelled = false;
+    if (!hasVisibleData) {
+      setLoadState("loading");
+    }
+    setIsFetching(true);
     setErrorMessage(null);
 
-    void (async () => {
+    const loadChapter = async () => {
       try {
-        const data = await getBibleChapter(book, chapter, translation, jwt ?? undefined);
-        if (cancelled) return;
-        setVerses(
-          data.verses.map((v) => ({
+        const data = await getBibleChapter(trimmedBook, chapter, translation, jwt ?? undefined);
+        if (cancelled || activeRequestIdRef.current !== requestId) return;
+
+        const nextData: CachedBibleChapter = {
+          verses: data.verses.map((v) => ({
             verse: v.verse,
-            text: v.text
-          }))
-        );
-        setBookLabel(data.bookLabel ?? null);
+            text: v.text,
+          })),
+          bookLabel: data.bookLabel ?? null,
+        };
+
+        cacheRef.current[cacheKey] = nextData;
+
+        setVerses(nextData.verses);
+        setBookLabel(nextData.bookLabel);
+        setErrorMessage(null);
         setLoadState("ready");
+        setIsFetching(false);
+        hasDataRef.current = nextData.verses.length > 0;
+
+        // Optional warm prefetch of next chapter can be added here later
       } catch (e) {
-        if (cancelled) return;
+        if (cancelled || activeRequestIdRef.current !== requestId) return;
+
         const msg =
           e instanceof ApiError
             ? e.message
             : e instanceof Error
               ? e.message
               : "Could not load this chapter.";
-        setVerses([]);
-        setBookLabel(null);
+
+        if (!hasVisibleData) {
+          setVerses([]);
+          setBookLabel(null);
+          setLoadState("error");
+          hasDataRef.current = false;
+        } else {
+          setLoadState("ready");
+        }
+
         setErrorMessage(msg);
-        setLoadState("error");
+        setIsFetching(false);
       }
-    })();
+    };
+
+    loadChapter();
 
     return () => {
       cancelled = true;
     };
   }, [book, chapter, translation, jwt, retryTick]);
 
-  return { verses, bookLabel, loadState, errorMessage, refetch };
+  return { verses, bookLabel, loadState, isFetching, errorMessage, refetch };
 }
 
-export function useGetBibleBooks(translation: Translation): {
-  books: BibleBookDto[];
-  loadState: BibleChapterFetchState;
-  errorMessage: string | null;
-  refetch: () => void;
-} {
-  const [books, setBooks] = useState<BibleBookDto[]>([]);
-  const [loadState, setLoadState] = useState<BibleChapterFetchState>("loading");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [retryTick, setRetryTick] = useState(0);
+export function useGetBibleBooks(translation: Translation) {
+  const { data: books, loadState, errorMessage, refetch } = useApiRequest(
+    () => getBibleBooks(translation),
+    [translation],
+    "Could not load books.",
+    []
+  );
 
-  const refetch = useCallback(() => {
-    setRetryTick((t) => t + 1);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoadState("loading");
-    setErrorMessage(null);
-
-    void (async () => {
-      try {
-        const rows = await getBibleBooks(translation);
-        if (cancelled) return;
-        setBooks(rows);
-        setLoadState("ready");
-      } catch (e) {
-        if (cancelled) return;
-        const msg =
-          e instanceof ApiError
-            ? e.message
-            : e instanceof Error
-              ? e.message
-              : "Could not load books.";
-        setBooks([]);
-        setErrorMessage(msg);
-        setLoadState("error");
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [translation, retryTick]);
-
-  return { books, loadState, errorMessage, refetch };
+  return { books: books ?? [], loadState, errorMessage, refetch };
 }
 
 export function useBibleBookChaptersCatalog(translation: Translation): {
