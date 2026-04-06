@@ -1,6 +1,6 @@
 import type { ChatMessage } from "@/types";
 import type { ChatThreadScreenProps } from "@/features/chat/types";
-import { useGetConversationMessages, useSendMessage } from "@/lib/api/chat/hooks";
+import { useConversationMessagesRealtime, useSendMessage } from "@/lib/api/chat/hooks";
 import { useAuthStore } from "@/store/useAuthStore";
 import { triggerSend } from "@/lib/native/haptics";
 import { useRouter } from "expo-router";
@@ -41,13 +41,13 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
     conversationId !== 'undefined' && 
     conversationId.trim() !== '');
 
-  // Rule 6: Data hooks in lib/ - feature hooks call them  
+  // Rule 6: Data hooks in lib/ - feature hooks call them (now with realtime)
   const { 
     data: serverMessages, 
     loadState, 
     errorMessage, 
     refetch 
-  } = useGetConversationMessages(isValidConversationId ? conversationId : '');
+  } = useConversationMessagesRealtime(isValidConversationId ? conversationId : '');
 
   const { 
     sendUserMessage,
@@ -73,23 +73,22 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
     return deduplicated;
   }, [serverMessages, optimisticMessages]);
 
-  // Clear optimistic messages that now have corresponding server messages
+  // Clear optimistic messages that now have corresponding server messages (enhanced for realtime)
   useEffect(() => {
     if (!serverMessages || serverMessages.length === 0) return;
     
     setOptimisticMessages(prev => {
-      // Keep optimistic messages that are still in progress or failed
+      // More aggressive cleanup since realtime updates arrive instantly
       return prev.filter(optimistic => {
         // Keep loading/sending/failed messages
         if (optimistic.status === 'loading' || optimistic.status === 'sending' || optimistic.status === 'failed') {
           return true;
         }
         
-        // Check if this optimistic message has a corresponding server message
+        // For realtime, check exact content match with any server message
         const hasServerVersion = serverMessages.some(server => 
           server.content.trim() === optimistic.content.trim() && 
-          server.role === optimistic.role &&
-          Math.abs(new Date(server.created_at).getTime() - new Date(optimistic.created_at).getTime()) < 60000 // within 1 minute
+          server.role === optimistic.role
         );
         
         // If there's a server version, remove the optimistic one
