@@ -1,226 +1,158 @@
-import { ChatBubble } from "@/components/ChatBubble";
-import { PracticalStepChip } from "@/components/PracticalStepChip";
-import { RebukeBlock } from "@/components/RebukeBlock";
-import { VerseCard } from "@/components/VerseCard";
-import { colors } from "@/constants/theme";
+import { ChatBubble } from "@/features/chat/components/ChatBubble";
+import { PracticalStepChip } from "@/features/chat/components/PracticalStepChip";
+import { RebukeBlock } from "@/features/chat/components/RebukeBlock";
 import { useChatThreadScreenState } from "@/features/chat/hooks/useChatThreadScreenState";
-import type { ChatThreadScreenProps } from "@/features/chat/types";
-import { triggerSend } from "@/lib/native/haptics";
 import type { ChatMessage } from "@/types";
 import { Feather } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
 import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  StyleSheet,
+  SafeAreaView,
   Text,
   TextInput,
   View,
+  type ListRenderItem,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-export function ChatThreadScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  return <ChatThreadScreenView {...useChatThreadScreenState(id ?? "")} />;
+interface Props {
+  conversationId: string;
 }
 
-export function ChatThreadScreenView({
-  title,
-  messages,
-  onBack,
-  onSendPress,
-}: ChatThreadScreenProps) {
+/**
+ * ChatThreadScreen - displays messages in a conversation with input bar
+ * Follows SKILL.md Rule 8: Screen composes only (state hook + components)
+ */
+export function ChatThreadScreen({ conversationId }: Props) {
+  // Rule 9: State lives in one hook per feature
+  const state = useChatThreadScreenState(conversationId);
+
+  const renderMessage: ListRenderItem<ChatMessage> = ({ item: message }) => {
+    const isUser = message.role === "user";
+    
+    return (
+      <View className="px-4 py-1">
+        <ChatBubble message={message} />
+        
+        {/* Assistant message enhancements */}
+        {!isUser && message.encouragement && (
+          <View className="ml-1 mt-3 max-w-[82%]">
+            {message.encouragement.practicalStep && (
+              <PracticalStepChip text={message.encouragement.practicalStep} />
+            )}
+            
+            {message.encouragement.rebuke && (
+              <RebukeBlock text={message.encouragement.rebuke} />
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // Rule 12: SafeAreaView and KeyboardAvoidingView at screen level only
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <View style={styles.header}>
+    <SafeAreaView style={{ flex: 1 }} className="bg-parchment">
+      {/* Header - outside KAV so keyboard never moves it */}
+      <View className="flex-row items-center border-b border-muted/20 bg-cream px-4 py-3.5">
         <Pressable
-          style={styles.backBtn}
-          onPress={onBack}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={12}
+          onPress={state.onBack}
+          className="mr-3 h-9 w-9 items-center justify-center rounded-full"
+          style={{ backgroundColor: "rgba(201, 151, 58, 0.1)" }}
         >
-          <Feather name="chevron-left" size={24} color={colors.muted} />
+          <Feather name="arrow-left" size={18} color="#C9973A" />
         </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={styles.headerSub}>Abide</Text>
+
+        {/* Conversation avatar */}
+        <View className="mr-3 h-10 w-10 items-center justify-center rounded-full border border-gold/20 bg-gold/8">
+          <Feather name="book-open" size={16} color="#C9973A" />
         </View>
-        <View style={styles.headerRight} />
+        
+        <View style={{ flex: 1 }}>
+          <Text className="font-serif text-base font-medium text-ink" numberOfLines={1}>
+            {state.title}
+          </Text>
+          <Text className="font-sans text-xs text-muted/80">
+            {state.messages.length === 0 ? (
+              "Ready to listen"
+            ) : (
+              <>
+                {state.messages.length} message{state.messages.length !== 1 ? "s" : ""} • 
+                <Text className="text-teal"> Active</Text>
+              </>
+            )}
+          </Text>
+        </View>
+
+        {/* Menu button */}
+        <Pressable className="h-9 w-9 items-center justify-center rounded-full">
+          <Feather name="more-horizontal" size={18} color="rgba(140, 123, 106, 0.6)" />
+        </Pressable>
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.flex}
+      <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+        style={{ flex: 1 }}
       >
-        <FlatList
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.threadEmpty}>
-              <Text style={styles.threadEmptyText}>Say what&apos;s on your heart — Abide listens.</Text>
+        {/* Message list or empty state */}
+        {state.messages.length === 0 ? (
+          <View style={{ flex: 1 }} className="items-center justify-center px-8">
+            <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-gold/10">
+              <Feather name="message-circle" size={28} color="#C9973A" />
             </View>
-          }
-          renderItem={({ item }) => <MessageBlock message={item} />}
-        />
-
-        <View style={styles.composer}>
-          <TextInput
-            placeholder="Abide is listening…"
-            placeholderTextColor={colors.muted}
-            style={styles.input}
-            multiline
-            maxLength={2000}
+            <Text className="mb-2 text-center font-serif text-xl text-ink">
+              Ready to Listen
+            </Text>
+            <Text className="text-center font-sans text-base leading-6 text-muted">
+              Share what's on your heart. I'm here to offer biblical guidance and encouragement.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={state.messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.id.toString()}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingVertical: 8 }}
+            onContentSizeChange={state.onScrollToBottom}
+            showsVerticalScrollIndicator={false}
           />
-          <Pressable
-            style={({ pressed }) => [styles.sendBtn, pressed && { opacity: 0.85 }]}
-            onPress={() => {
-              void triggerSend();
-              onSendPress();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Send message"
-          >
-            <Feather name="send" size={18} color={colors.white} />
-          </Pressable>
+        )}
+        
+        {/* Input bar */}
+        <View className="border-t border-muted/20 bg-cream px-4 py-3">
+          <View className="flex-row items-end">
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <TextInput
+                value={state.inputText}
+                onChangeText={state.onInputChange}
+                placeholder="Share what's on your heart..."
+                placeholderTextColor="rgba(140, 123, 106, 0.6)"
+                multiline
+                maxLength={500}
+                className="max-h-24 rounded-2xl border border-muted/25 bg-white px-4 py-3 font-sans text-base text-ink"
+                style={{ textAlignVertical: "top" }}
+              />
+            </View>
+
+            <Pressable
+              onPress={state.onSend}
+              disabled={!state.canSend}
+              className="h-12 w-12 items-center justify-center rounded-full shadow-sm"
+              style={{ 
+                backgroundColor: state.canSend ? "#C9973A" : "#E8E0D6" 
+              }}
+            >
+              <Feather
+                name="send"
+                size={17}
+                color={state.canSend ? "#FFFFFF" : "rgba(140, 123, 106, 0.5)"}
+              />
+            </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
-function MessageBlock({ message }: { message: ChatMessage }) {
-  return (
-    <View style={styles.msgBlock}>
-      <ChatBubble message={message} />
-      {message.response ? (
-        <View style={styles.responseWrap}>
-          {message.response.verses.map((verse) => (
-            <VerseCard key={verse.id} verse={verse} />
-          ))}
-          <RebukeBlock text={message.response.rebuke ?? ""} />
-          <PracticalStepChip text={message.response.practicalStep} />
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.parchment,
-  },
-  flex: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(140,123,106,0.18)",
-    backgroundColor: colors.parchment,
-  },
-  backBtn: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontFamily: "serif",
-    fontSize: 20,
-    lineHeight: 26,
-    color: colors.ink,
-    textAlign: "center",
-  },
-  headerSub: {
-    fontFamily: "sans",
-    fontSize: 11,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-    color: colors.muted,
-    marginTop: 2,
-  },
-  headerRight: {
-    width: 44,
-  },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    flexGrow: 1,
-  },
-  msgBlock: {
-    marginBottom: 8,
-  },
-  responseWrap: {
-    marginBottom: 8,
-  },
-  threadEmpty: {
-    paddingVertical: 40,
-    paddingHorizontal: 16,
-  },
-  threadEmptyText: {
-    fontFamily: "sans",
-    fontSize: 15,
-    color: colors.muted,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  composer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: Platform.OS === "ios" ? 12 : 12,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(201,151,58,0.2)",
-    backgroundColor: colors.cream,
-  },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontFamily: "sans",
-    fontSize: 16,
-    color: colors.ink,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: "rgba(140,123,106,0.15)",
-  },
-  sendBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: colors.gold,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-});

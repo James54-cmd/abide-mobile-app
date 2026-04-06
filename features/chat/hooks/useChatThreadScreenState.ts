@@ -1,7 +1,8 @@
 import type { ChatThreadScreenProps } from "@/features/chat/types";
 import type { ChatMessage } from "@/types";
+import { triggerSend } from "@/lib/native/haptics";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 const TITLES: Record<string, string> = {
   c1: "Anxious heart",
@@ -15,27 +16,28 @@ const MOCK_BY_ID: Record<string, ChatMessage[]> = {
       id: "u1",
       role: "user",
       content: "I feel overwhelmed today.",
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      conversation_id: "c1",
+      user_id: "user1",
     },
     {
       id: "a1",
       role: "assistant",
       content: "You are not alone in this moment.",
-      createdAt: new Date().toISOString(),
-      response: {
+      created_at: new Date().toISOString(),
+      conversation_id: "c1",
+      user_id: "system",
+      encouragement: {
         intro: "Breathe. God is near.",
         verses: [
           {
-            id: "v1",
             reference: "Matthew 11:28",
             text: "Come to me, all you who are weary and burdened, and I will give you rest.",
-            translation: "NIV",
-            relevance: "Jesus invites your tired heart.",
           },
         ],
         closing: "You are carried in mercy.",
-        rebuke: null,
         practicalStep: "Take 3 slow breaths and pray this verse aloud.",
+        rebuke: null,
       },
     },
   ],
@@ -44,7 +46,9 @@ const MOCK_BY_ID: Record<string, ChatMessage[]> = {
       id: "u2",
       role: "user",
       content: "Thank you for this day.",
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      conversation_id: "c2",
+      user_id: "user1",
     },
   ],
   c3: [],
@@ -56,6 +60,7 @@ function defaultMessages(): ChatMessage[] {
 
 export function useChatThreadScreenState(conversationId: string): ChatThreadScreenProps {
   const router = useRouter();
+  const [inputText, setInputText] = useState("");
 
   const title = useMemo(
     () => TITLES[conversationId] ?? "Conversation",
@@ -66,19 +71,39 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
     return MOCK_BY_ID[conversationId] ?? defaultMessages();
   }, [conversationId]);
 
+  const canSend = useMemo(() => inputText.trim().length > 0, [inputText]);
+
   const onBack = useCallback(() => {
     router.back();
   }, [router]);
 
-  const onSendPress = useCallback(() => {
-    // Wire to send message API when available
+  const onInputChange = useCallback((text: string) => {
+    setInputText(text);
+  }, []);
+
+  const onSend = useCallback(() => {
+    const trimmed = inputText.trim();
+    if (!trimmed) return;
+    
+    void triggerSend();
+    // TODO: Wire to send message API when available
+    console.log("Sending message:", trimmed);
+    setInputText("");
+  }, [inputText]);
+
+  const onScrollToBottom = useCallback(() => {
+    // Handler for FlatList onContentSizeChange - implementation handled in component
   }, []);
 
   return {
     conversationId,
     title,
     messages,
+    inputText,
+    canSend,
     onBack,
-    onSendPress,
+    onInputChange,
+    onSend,
+    onScrollToBottom,
   };
 }
