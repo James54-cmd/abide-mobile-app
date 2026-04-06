@@ -25,6 +25,10 @@ export interface AiChatResponse {
     created_at: string;
     user_id: string;
   };
+  conversation?: {
+    title_updated: boolean;
+    title?: string;
+  };
 }
 
 export interface AiChatError {
@@ -36,10 +40,13 @@ export interface AiChatError {
  * Send message to AI through secure Edge Function
  * 
  * @param request - Chat request with conversation context
- * @returns Promise<ChatMessage> - The AI response message
+ * @returns Promise<{message: ChatMessage, conversation?: {title_updated: boolean, title?: string}}> - The AI response with conversation updates
  * @throws Error - If authentication fails, rate limits exceeded, or service unavailable
  */
-export async function postAiEncouragement(request: AiChatRequest): Promise<ChatMessage> {
+export async function postAiEncouragement(request: AiChatRequest): Promise<{
+  message: ChatMessage;
+  conversation?: { title_updated: boolean; title?: string };
+}> {
   try {
     // Check if user is authenticated with Supabase
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -63,7 +70,7 @@ export async function postAiEncouragement(request: AiChatRequest): Promise<ChatM
       userId: user.id
     });
 
-    // Explicitly send the access token in Authorization header
+    // Explicitly send the access token in Authorization header for debugging
     const { data, error } = await supabase.functions.invoke<AiChatResponse | AiChatError>('ai-chat', {
       body: request,
       headers: {
@@ -96,15 +103,23 @@ export async function postAiEncouragement(request: AiChatRequest): Promise<ChatM
 
     console.log('Encouragement data received:', data.message.encouragement);
 
+    // Handle title updates if returned
+    if (data.conversation?.title_updated) {
+      console.log('Conversation title updated to:', data.conversation.title);
+    }
+
     // Transform the response to match your ChatMessage type
     return {
-      id: data.message.id,
-      conversation_id: data.message.conversation_id,
-      role: data.message.role,
-      content: data.message.content,
-      encouragement: data.message.encouragement, // Include the encouragement JSON data
-      created_at: data.message.created_at,
-      user_id: data.message.user_id // Both user and assistant messages have user_id in your schema
+      message: {
+        id: data.message.id,
+        conversation_id: data.message.conversation_id,
+        role: data.message.role,
+        content: data.message.content,
+        encouragement: data.message.encouragement, // Include the encouragement JSON data
+        created_at: data.message.created_at,
+        user_id: data.message.user_id // Both user and assistant messages have user_id in your schema
+      },
+      conversation: data.conversation
     };
 
   } catch (error) {

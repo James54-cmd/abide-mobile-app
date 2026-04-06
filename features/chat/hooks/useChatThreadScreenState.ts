@@ -59,9 +59,15 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
       // 2. Refresh to show user message right away
       refetch();
       
-      // 3. Get AI response (user can see "AI is typing..." here)
+      // 3. Get AI response (user can see "AI is typing..." here)  
       const currentMessages = [...(messages ?? []), userMessage];
-      const aiResponse = await sendForEncouragement(conversationId, trimmed, currentMessages);
+      const aiResult = await sendForEncouragement(conversationId, trimmed, currentMessages);
+      
+      // Handle conversation title updates
+      if (aiResult.conversation?.title_updated) {
+        console.log('Title updated for conversation:', conversationId);
+        // The conversation list will refresh automatically on next navigation
+      }
       
       // 4. Refresh again to show AI response when ready
       refetch();

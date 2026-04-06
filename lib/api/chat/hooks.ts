@@ -42,10 +42,10 @@ export function useGetConversationMessages(conversationId: string) {
 export function useCreateConversation() {
   const [loading, setLoading] = useState(false);
   
-  const createNew = useCallback(async (title: string): Promise<Conversation> => {
+  const createNew = useCallback(async (title?: string): Promise<Conversation> => {
     setLoading(true);
     try {
-      const conversation = await createConversation(title);
+      const conversation = await createConversation(title); // title is now optional
       return conversation;
     } finally {
       setLoading(false);
@@ -80,10 +80,13 @@ export function useSendMessage() {
     conversationId: string,
     message: string,
     history: ChatMessage[]
-  ): Promise<ChatMessage> => {
+  ): Promise<{
+    message: ChatMessage;
+    conversation?: { title_updated: boolean; title?: string };
+  }> => {
     setSending(true);
     try {
-      // AI function now only returns AI response (doesn't store user message)
+      // AI function returns AI response and conversation updates
       return await postAiEncouragement({
         conversationId,
         message,

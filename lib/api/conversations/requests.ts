@@ -39,7 +39,7 @@ export async function getConversationMessages(conversationId: string): Promise<C
   return data || [];
 }
 
-export async function createConversation(title: string): Promise<Conversation> {
+export async function createConversation(title?: string): Promise<Conversation> {
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
@@ -49,7 +49,9 @@ export async function createConversation(title: string): Promise<Conversation> {
   const { data, error } = await supabase
     .from('chat_conversations')
     .insert({
-      title,
+      title: title || 'New Conversation',  // Default to placeholder
+      title_status: 'pending',             // Mark as pending title generation
+      message_count: 0,                    // Start with zero messages
       user_id: user.id
     })
     .select()
@@ -93,4 +95,26 @@ export async function sendChatMessage(
   }
 
   return data;
+}
+
+export async function updateConversationTitle(conversationId: string, title: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error("Authentication required");
+  }
+
+  const { error } = await supabase
+    .from('chat_conversations')
+    .update({ 
+      title, 
+      title_status: 'user_edited',  // Mark as user-edited to prevent auto-overwrite
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', conversationId)
+    .eq('user_id', user.id);
+
+  if (error) {
+    throw new Error(`Failed to update conversation title: ${error.message}`);
+  }
 }
