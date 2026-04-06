@@ -7,6 +7,12 @@ import {
 } from "@/lib/api/conversations/requests";
 import { postAiEncouragement } from "@/lib/api/chat/requests";
 import type { ChatMessage, Conversation } from "@/types";
+import { 
+  createChatError, 
+  ChatErrorCodes, 
+  normalizeChatError,
+  type ChatError 
+} from "@/features/chat/utils/chatErrors";
 import { useCallback, useState } from "react";
 
 /**
@@ -59,13 +65,22 @@ export function useCreateConversation() {
 
 export function useSendMessage() {
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<ChatError | null>(null);
 
   // Send user message immediately (appears right away in chat)
   const sendUserMessage = useCallback(async (
     conversationId: string,
     content: string
-  ): Promise<ChatMessage> => {
-    return await sendChatMessage(conversationId, content);
+  ): Promise<{ message?: ChatMessage; error?: ChatError }> => {
+    setError(null);
+    try {
+      const message = await sendChatMessage(conversationId, content);
+      return { message };
+    } catch (err) {
+      const chatError = normalizeChatError(err);
+      setError(chatError);
+      return { error: chatError };
+    }
   }, []);
 
   /**
@@ -81,21 +96,30 @@ export function useSendMessage() {
     message: string,
     history: ChatMessage[]
   ): Promise<{
-    message: ChatMessage;
-    conversation?: { title_updated: boolean; title?: string };
+    result?: {
+      message: ChatMessage;
+      conversation?: { title_updated: boolean; title?: string };
+    };
+    error?: ChatError;
   }> => {
     setSending(true);
+    setError(null);
     try {
       // AI function returns AI response and conversation updates
-      return await postAiEncouragement({
+      const result = await postAiEncouragement({
         conversationId,
         message,
         history
       });
+      return { result };
+    } catch (err) {
+      const chatError = normalizeChatError(err);
+      setError(chatError);
+      return { error: chatError };
     } finally {
       setSending(false);
     }
   }, []);
   
-  return { sendUserMessage, sendForEncouragement, sending };
+  return { sendUserMessage, sendForEncouragement, sending, error };
 }

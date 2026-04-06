@@ -18,6 +18,7 @@ export interface ChatThreadScreenProps {
   inputText: string;
   canSend: boolean;
   sending: boolean;
+  sendError: string | null; // User-friendly error message for send failures (SKILL.md Rule 14)
   // Handlers  
   onBack: () => void;
   onInputChange: (text: string) => void;

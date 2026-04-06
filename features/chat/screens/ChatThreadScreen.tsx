@@ -1,6 +1,6 @@
 import { ChatBubble } from "@/features/chat/components/ChatBubble";
-import { TypingIndicator } from "@/features/chat/components/TypingIndicator";
 import { useChatThreadScreenState } from "@/features/chat/hooks/useChatThreadScreenState";
+import { getMessageKey } from "@/features/chat/utils/messageHelpers";
 import type { ChatMessage } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import {
@@ -14,7 +14,7 @@ import {
   View,
   type ListRenderItem,
 } from "react-native";
-import { useMemo } from "react";
+import { useMemo, useCallback, useRef, useEffect } from "react";
 
 interface Props {
   conversationId: string;
@@ -23,10 +23,15 @@ interface Props {
 /**
  * ChatThreadScreen - displays messages in a conversation with input bar
  * Follows SKILL.md Rule 8: Screen composes only (state hook + components)
+ * Enhanced with optimistic updates and smooth FlatList performance
  */
 export function ChatThreadScreen({ conversationId }: Props) {
   // Rule 9: State lives in one hook per feature
   const state = useChatThreadScreenState(conversationId);
+  const flatListRef = useRef<FlatList<ChatMessage>>(null);
+  
+  // Track previous message count for smart auto-scroll
+  const previousMessageCount = useRef(state.messages.length);
 
   // Derive title from first user message if available
   const title = useMemo(() => {
@@ -43,13 +48,44 @@ export function ChatThreadScreen({ conversationId }: Props) {
     return "Conversation";
   }, [state.messages]);
 
-  const renderMessage: ListRenderItem<ChatMessage> = ({ item: message }) => {
+  // Memoized render function to prevent unnecessary rerenders
+  const renderMessage: ListRenderItem<ChatMessage> = useCallback(({ item: message }) => {
     return (
       <View className="px-4 py-1">
-        <ChatBubble message={message} />
+        <ChatBubble 
+          message={message} 
+          onRetry={() => {
+            // TODO: Implement retry logic for failed messages
+            console.log("Retry message:", message.id);
+          }}
+        />
       </View>
     );
-  };
+  }, []);
+
+  // Stable key extractor using the message helper
+  const keyExtractor = useCallback((item: ChatMessage) => getMessageKey(item), []);
+
+  // Smart auto-scroll: only scroll when new messages are added
+  useEffect(() => {
+    const currentCount = state.messages.length;
+    const hasNewMessages = currentCount > previousMessageCount.current;
+    
+    if (hasNewMessages && flatListRef.current && currentCount > 0) {
+      // Small delay to ensure content is rendered before scrolling
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+    
+    previousMessageCount.current = currentCount;
+  }, [state.messages.length]);
+
+  // Memoized content container style
+  const contentContainerStyle = useMemo(() => ({
+    paddingVertical: 8,
+    flexGrow: state.messages.length === 0 ? 1 : undefined,
+  }), [state.messages.length]);
 
   // Rule 12: SafeAreaView and KeyboardAvoidingView at screen level only
   return (
@@ -135,27 +171,36 @@ export function ChatThreadScreen({ conversationId }: Props) {
           </View>
         ) : (
           <FlatList
+            ref={flatListRef}
             data={state.messages}
             renderItem={renderMessage}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={keyExtractor}
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingVertical: 8 }}
-            onContentSizeChange={state.onScrollToBottom}
+            contentContainerStyle={contentContainerStyle}
             showsVerticalScrollIndicator={false}
-            ListFooterComponent={state.sending ? <TypingIndicator /> : undefined}
+            // Performance optimizations
+            removeClippedSubviews={state.messages.length > 50}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            initialNumToRender={20}
+            getItemLayout={undefined} // Let RN measure dynamically for chat bubbles
+            // Smooth scrolling behavior
+            scrollEventThrottle={16}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
           />
         )}
         
-        {/* Error state */}
-        {state.error && (
+        {/* Error states - SKILL.md Rule 14: UI renders error props */}
+        {(state.error || state.sendError) && (
           <View className="mx-4 mb-2 flex-row items-start rounded-lg border border-red-200 bg-red-50 p-3">
             <Feather name="alert-circle" size={16} color="#DC2626" />
             <View style={{ flex: 1, marginLeft: 8 }}>
               <Text className="font-sans-medium text-sm text-red-700">
-                Something went wrong
+                {state.error ? "Connection Error" : "Send Error"}
               </Text>
               <Text className="mb-2 font-sans text-sm text-red-600">
-                {state.error}
+                {state.error || state.sendError}
               </Text>
               <Pressable onPress={state.refetch} className="self-start">
                 <Text className="font-sans text-sm text-red-600 underline">
