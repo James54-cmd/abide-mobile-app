@@ -1,17 +1,17 @@
 import { useChatListScreenState } from "@/features/chat/hooks/useChatListScreenState";
 import type { ChatListScreenProps } from "@/features/chat/types";
-import type { Conversation } from "@/types";
-import { BaseListCard } from "@/components/ui/BaseListCard";
+import { ConversationCard } from "@/features/chat/components/ConversationCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
-import { FlatList, View } from "react-native";
+import { FlatList, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Feather } from "@expo/vector-icons";
 
 export function ChatListScreen() {
   return <ChatListScreenView {...useChatListScreenState()} />;
 }
 
-export function ChatListScreenView({ conversations, onOpen }: ChatListScreenProps) {
+export function ChatListScreenView({ conversations, onOpen, onNewConversation }: ChatListScreenProps) {
   return (
     <SafeAreaView className="flex-1 bg-parchment" edges={["top", "left", "right"]}>
       <ScreenHeader
@@ -28,37 +28,31 @@ export function ChatListScreenView({ conversations, onOpen }: ChatListScreenProp
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <EmptyState
-            icon="sunrise"
-            title="No conversations yet"
-            subtitle="Start from Home — tap 'What's on your heart?'"
+            icon="heart"
+            title="Start your first conversation"
+            subtitle="Share what's on your heart and receive biblical encouragement personalized just for you"
           />
         }
         renderItem={({ item, index }) => (
-          <ConversationCard conversation={item} index={index} onPress={() => onOpen(item.id)} />
+          <ConversationCard 
+            conversation={item} 
+            onPress={() => onOpen(item.id)} 
+            isFirst={index === 0}
+          />
         )}
       />
-    </SafeAreaView>
-  );
-}
 
-function ConversationCard({
-  conversation,
-  index,
-  onPress,
-}: {
-  conversation: Conversation;
-  index: number;
-  onPress: () => void;
-}) {
-  return (
-    <View className={index > 0 ? "mt-3" : ""}>
-      <BaseListCard
-        title={conversation.title}
-        subtitle={conversation.lastMessage}
-        onPress={onPress}
-        accessibilityLabel={`Open ${conversation.title}`}
-        spacing={false}
-      />
-    </View>
+      {/* Floating New Conversation Button */}
+      <View className="absolute bottom-6 right-6">
+        <Pressable
+          className="h-14 w-14 items-center justify-center rounded-full bg-gold shadow-lg active:opacity-90"
+          onPress={onNewConversation}
+          accessibilityRole="button"
+          accessibilityLabel="Start new conversation"
+        >
+          <Feather name="plus" size={24} color="white" />
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }

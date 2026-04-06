@@ -1,10 +1,9 @@
 export type Translation = string;
 
 export interface Verse {
-  id: string;
-  reference: string;
   text: string;
-  translation: Translation;
+  reference: string;
+  translation?: string;
   relevance?: string;
 }
 
@@ -12,23 +11,30 @@ export interface EncouragementResponse {
   intro: string;
   verses: Verse[];
   closing: string;
-  rebuke: string | null;
-  practicalStep: string;
+  rebuke?: string | null;
+  practicalStep?: string;
 }
 
 export interface ChatMessage {
-  id: string;
+  id: string | number;
+  conversation_id: string;
+  user_id: string;
   role: "user" | "assistant";
   content: string;
-  createdAt: string;
-  response?: EncouragementResponse;
+  encouragement?: EncouragementResponse | null;
+  created_at: string;
 }
 
 export interface Conversation {
   id: string;
+  user_id: string;
   title: string;
-  updatedAt: string;
-  lastMessage: string;
+  created_at: string;
+  updated_at: string;
+  // Computed/derived fields for UI
+  last_message?: string;
+  message_count?: number;
+  unread_count?: number;
 }
 
 export interface StreakState {
