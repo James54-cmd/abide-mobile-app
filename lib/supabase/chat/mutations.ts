@@ -10,13 +10,18 @@ import type { Conversation } from "@/types";
  * Delete a conversation and all its messages
  */
 export async function deleteConversation(conversationId: string): Promise<void> {
+  console.log(`🟡 [Mutation] Deleting conversation: ${conversationId}`);
+  
   // First delete all messages in the conversation
   const { error: messagesError } = await supabase
     .from("chat_messages")
     .delete()
     .eq("conversation_id", conversationId);
 
+  console.log(`🟡 [Mutation] Messages deletion response:`, { messagesError });
+
   if (messagesError) {
+    console.log(`🟡 [Mutation] Messages deletion failed:`, messagesError);
     throw new Error(`Failed to delete conversation messages: ${messagesError.message}`);
   }
 
@@ -26,9 +31,14 @@ export async function deleteConversation(conversationId: string): Promise<void> 
     .delete()
     .eq("id", conversationId);
 
+  console.log(`🟡 [Mutation] Conversation deletion response:`, { conversationError });
+
   if (conversationError) {
+    console.log(`🟡 [Mutation] Conversation deletion failed:`, conversationError);
     throw new Error(`Failed to delete conversation: ${conversationError.message}`);
   }
+  
+  console.log(`🟡 [Mutation] Conversation deleted successfully`);
 }
 
 /**
@@ -38,6 +48,8 @@ export async function updateConversationTitle(
   conversationId: string, 
   newTitle: string
 ): Promise<Conversation> {
+  console.log(`🟡 [Mutation] Updating conversation ${conversationId} with title: "${newTitle}"`);
+  
   const { data, error } = await supabase
     .from("chat_conversations")
     .update({ 
@@ -49,14 +61,19 @@ export async function updateConversationTitle(
     .select("*")
     .single();
 
+  console.log(`🟡 [Mutation] Update response:`, { data, error });
+
   if (error) {
+    console.log(`🟡 [Mutation] Update failed:`, error);
     throw new Error(`Failed to update conversation title: ${error.message}`);
   }
 
   if (!data) {
+    console.log(`🟡 [Mutation] No data returned from update`);
     throw new Error("Conversation not found");
   }
 
+  console.log(`🟡 [Mutation] Update successful:`, data);
   return data as Conversation;
 }
 
@@ -68,14 +85,14 @@ export async function getConversationDetails(conversationId: string): Promise<Co
     .from("chat_conversations")
     .select("*")
     .eq("id", conversationId)
-    .single();
+    .maybeSingle(); // Use maybeSingle() instead of single() to handle missing records gracefully
 
   if (error) {
     throw new Error(`Failed to get conversation details: ${error.message}`);
   }
 
   if (!data) {
-    throw new Error("Conversation not found");
+    throw new Error("Conversation not found or has been deleted");
   }
 
   return data as Conversation;

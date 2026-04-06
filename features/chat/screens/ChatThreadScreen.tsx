@@ -41,24 +41,29 @@ export function ChatThreadScreen({ conversationId }: Props) {
 
   // Derive title from conversation data or fallback to first message
   const title = useMemo(() => {
-    // Use conversation title if available
-    if (state.conversation?.title) {
+    // Use conversation title if available and not placeholder
+    if (state.conversation?.title && state.conversation.title !== 'New Conversation') {
       return state.conversation.title;
     }
     
-    // Fallback to deriving from first user message
-    if (state.messages.length === 0) return "New conversation";
+    // Special handling for "New Conversation" placeholder during first message flow
+    if (state.conversation?.title === 'New Conversation' && state.messages.length > 0) {
+      const firstUserMessage = state.messages.find(msg => msg.role === "user");
+      if (firstUserMessage) {
+        const derivedTitle = firstUserMessage.content.trim().slice(0, 30);
+        return derivedTitle.length < firstUserMessage.content.trim().length 
+          ? `${derivedTitle}...` 
+          : derivedTitle;
+      }
+    }
     
-    const firstUserMessage = state.messages.find(msg => msg.role === "user");
-    if (firstUserMessage) {
-      const derivedTitle = firstUserMessage.content.trim().slice(0, 30);
-      return derivedTitle.length < firstUserMessage.content.trim().length 
-        ? `${derivedTitle}...` 
-        : derivedTitle;
+    // Final fallbacks
+    if (state.messages.length === 0) {
+      return "New conversation";
     }
     
     return "Conversation";
-  }, [state.conversation?.title, state.messages]);
+  }, [state.conversation?.title, state.messages.length, state.messages]);
 
   // Memoized render function to prevent unnecessary rerenders
   const renderMessage: ListRenderItem<ChatMessage> = useCallback(({ item: message }) => {
@@ -305,11 +310,11 @@ export function ChatThreadScreen({ conversationId }: Props) {
           onClose={() => setShowContextMenu(false)}
           onDelete={() => {
             setShowContextMenu(false);
-            state.onDeleteConversation();
+            state.onDeleteConversation(state.conversationId);
           }}
           onRename={(newTitle) => {
             setShowContextMenu(false);
-            state.onRenameConversation(newTitle);
+            state.onRenameConversation(state.conversationId, newTitle);
           }}
           isDeleting={state.isDeleting}
           isRenaming={state.isRenaming}

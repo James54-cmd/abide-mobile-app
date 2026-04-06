@@ -90,6 +90,7 @@ export function useConversationsRealtime() {
             );
           
           case "DELETE":
+            if (!event.old?.id) return prev;
             // Remove deleted conversation
             return prev.filter(conv => conv.id !== event.old?.id);
           
@@ -103,17 +104,21 @@ export function useConversationsRealtime() {
       setError(createChatError(ChatErrorCodes.NETWORK_ERROR, error.message));
     };
 
-    // Subscribe to realtime updates
+    // Subscribe to realtime updates with unique component identifier
     channelRef.current = subscribeToUserConversations(
       userId, 
       handleConversationUpdate,
-      handleError
+      handleError,
+      'conversations-list' // Unique identifier for this hook instance
     );
 
     // Cleanup on unmount or userId change
     return () => {
       if (channelRef.current) {
-        void unsubscribeFromChannel(channelRef.current);
+        unsubscribeFromChannel(channelRef.current).catch(err => 
+          console.error('Cleanup error:', err)
+        );
+        channelRef.current = null;
       }
     };
   }, [userId]);
@@ -282,15 +287,24 @@ export function useCreateConversation() {
  * Hook for deleting conversations - follows SKILL.md Rule 6 (data hooks in lib/)
  */
 export function useDeleteConversation() {
-  const [deleting, setDeleting] = useState<string | null>(null); // Track which conversation is being deleted
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<ChatError | null>(null);
 
-  const deleteConv = useCallback(async (conversationId: string): Promise<{ success?: boolean; error?: ChatError }> => {
+  const deleteConv = useCallback(async (
+    conversationId: string,
+    onSuccess?: () => void
+  ): Promise<{ success?: boolean; error?: ChatError }> => {
     setDeleting(conversationId);
     setError(null);
     
     try {
       await deleteConversation(conversationId);
+      
+      // Call success callback immediately for refetch
+      if (onSuccess) {
+        onSuccess();
+      }
+      
       return { success: true };
     } catch (err) {
       const chatError = normalizeChatError(err);
@@ -309,7 +323,7 @@ export function useDeleteConversation() {
  * Enhanced with optimistic updates for better UX
  */
 export function useRenameConversation() {
-  const [renaming, setRenaming] = useState<string | null>(null); // Track which conversation is being renamed
+  const [renaming, setRenaming] = useState<string | null>(null);
   const [error, setError] = useState<ChatError | null>(null);
   const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, string>>(new Map());
 
@@ -321,7 +335,7 @@ export function useRenameConversation() {
     
     if (!trimmedTitle || trimmedTitle.length < 1) {
       const validationError = createChatError(
-        ChatErrorCodes.MESSAGE_TOO_LONG, // Reuse for validation
+        ChatErrorCodes.MESSAGE_TOO_LONG,
         "Title cannot be empty"
       );
       setError(validationError);
@@ -337,7 +351,7 @@ export function useRenameConversation() {
       return { error: validationError };
     }
 
-    // Optimistic update: immediately update local title
+    // Optimistic update for immediate UI feedback
     setOptimisticUpdates(prev => new Map(prev).set(conversationId, trimmedTitle));
     setRenaming(conversationId);
     setError(null);
@@ -345,7 +359,7 @@ export function useRenameConversation() {
     try {
       const updatedConversation = await updateConversationTitle(conversationId, trimmedTitle);
       
-      // Clear optimistic update on success - realtime will handle the final update
+      // Clear optimistic update on success
       setOptimisticUpdates(prev => {
         const updated = new Map(prev);
         updated.delete(conversationId);

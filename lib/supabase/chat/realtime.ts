@@ -50,7 +50,7 @@ export function subscribeToConversationMessages(
       }
     )
     .subscribe((status) => {
-      if (status === "SUBSCRIPTION_ERROR" && onError) {
+      if (status === "CLOSED" && onError) {
         onError(new Error("Failed to subscribe to conversation messages"));
       }
     });
@@ -64,10 +64,15 @@ export function subscribeToConversationMessages(
 export function subscribeToUserConversations(
   userId: string,
   onConversation: (event: ConversationRealtimeEvent) => void,
-  onError?: (error: Error) => void
+  onError?: (error: Error) => void,
+  componentId?: string
 ): RealtimeChannel {
+  const channelName = componentId 
+    ? `user-conversations:${userId}:${componentId}`
+    : `user-conversations:${userId}:${Date.now()}`;
+  
   const channel = supabase
-    .channel(`user-conversations:${userId}`)
+    .channel(channelName)
     .on(
       "postgres_changes",
       {
@@ -78,19 +83,21 @@ export function subscribeToUserConversations(
       },
       (payload) => {
         try {
-          onConversation({
+          const event = {
             eventType: payload.eventType as ConversationRealtimeEvent["eventType"],
             new: payload.new as Conversation,
             old: payload.old as Conversation | null,
-          });
+          };
+          onConversation(event);
         } catch (error) {
+          console.error('[Realtime] Error processing conversation event:', error);
           onError?.(error as Error); 
         }
       }
     )
     .subscribe((status) => {
-      if (status === "SUBSCRIPTION_ERROR" && onError) {
-        onError(new Error("Failed to subscribe to user conversations"));
+      if (status === "CLOSED" && onError) {
+        onError(new Error("Realtime subscription closed unexpectedly"));
       }
     });
 
@@ -101,7 +108,12 @@ export function subscribeToUserConversations(
  * Unsubscribe from a realtime channel
  */
 export async function unsubscribeFromChannel(channel: RealtimeChannel): Promise<void> {
-  await supabase.removeChannel(channel);
+  try {
+    await channel.unsubscribe();
+    await supabase.removeChannel(channel);
+  } catch (error) {
+    console.error('[Realtime] Error unsubscribing from channel:', error);
+  }
 }
 
 /**
@@ -132,7 +144,7 @@ export function subscribeToMessageCounts(
       }
     )
     .subscribe((status) => {
-      if (status === "SUBSCRIPTION_ERROR" && onError) {
+      if (status === "CLOSED" && onError) {
         onError(new Error("Failed to subscribe to message counts"));
       }
     });

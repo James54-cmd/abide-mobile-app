@@ -6,6 +6,7 @@ import {
   useRenameConversation 
 } from "@/lib/api/chat/hooks";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useMemo } from "react";
 
 /**
@@ -21,6 +22,13 @@ export function useChatListScreenState(): ChatListScreenProps {
   const { createNew, loading: creating } = useCreateConversation();
   const { deleteConversation, deleting } = useDeleteConversation();
   const { renameConversation, renaming, getOptimisticTitle } = useRenameConversation();
+
+  // Refetch conversations when screen comes back into focus
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   // Apply optimistic updates to conversation titles
   const conversationsWithOptimisticUpdates = useMemo(() => {
@@ -50,31 +58,29 @@ export function useChatListScreenState(): ChatListScreenProps {
 
   const onDeleteConversation = useCallback(async (id: string) => {
     try {
-      const result = await deleteConversation(id);
+      const result = await deleteConversation(id, refetch);
       if (result.error) {
         console.error("Failed to delete conversation:", result.error.userMessage);
-        // TODO: Show user-friendly error toast
       }
-      // Don't need to refetch - realtime subscription will handle the update
     } catch (error) {
       console.error("Failed to delete conversation:", error);
-      // TODO: Show user-friendly error toast
     }
-  }, [deleteConversation]);
+  }, [deleteConversation, refetch]);
 
   const onRenameConversation = useCallback(async (id: string, newTitle: string) => {
     try {
       const result = await renameConversation(id, newTitle);
       if (result.error) {
         console.error("Failed to rename conversation:", result.error.userMessage);
-        // TODO: Show user-friendly error toast
+        return;
       }
-      // Realtime subscription will handle the update automatically
+      
+      // Refetch immediately after successful rename for consistent state
+      refetch();
     } catch (error) {
       console.error("Failed to rename conversation:", error);
-      // TODO: Show user-friendly error toast
     }
-  }, [renameConversation]);
+  }, [renameConversation, refetch]);
 
   return { 
     conversations: conversationsWithOptimisticUpdates, 
