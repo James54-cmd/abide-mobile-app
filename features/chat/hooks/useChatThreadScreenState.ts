@@ -12,23 +12,27 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
   const router = useRouter();
   const [inputText, setInputText] = useState("");
 
+  // Validate conversationId to prevent undefined UUID errors
+  const isValidConversationId = Boolean(conversationId && 
+    conversationId !== 'undefined' && 
+    conversationId.trim() !== '');
+
   // Rule 6: Data hooks in lib/ - feature hooks call them  
   const { 
     data: messages, 
     loadState, 
     errorMessage, 
     refetch 
-  } = useGetConversationMessages(conversationId);
+  } = useGetConversationMessages(isValidConversationId ? conversationId : '');
 
   const { 
-    sendUserMessage, 
     sendForEncouragement, 
     sending 
   } = useSendMessage();
 
   const canSend = useMemo(() => 
-    inputText.trim().length > 0 && !sending, 
-    [inputText, sending]
+    isValidConversationId && inputText.trim().length > 0 && !sending, 
+    [isValidConversationId, inputText, sending]
   );
 
   const onBack = useCallback(() => {
@@ -41,27 +45,25 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
 
   const onSend = useCallback(async () => {
     const trimmed = inputText.trim();
-    if (!trimmed) return;
+    if (!trimmed || !isValidConversationId) return;
     
     try {
       void triggerSend();
       
-      // Send user message
-      await sendUserMessage(conversationId, trimmed);
-      setInputText("");
-      
-      // Get AI encouragement (with current messages + new message)
+      // New secure flow: AI function handles both user message storage AND AI response
       const currentMessages = messages ?? [];
       await sendForEncouragement(conversationId, trimmed, currentMessages);
       
-      // Refetch to get latest messages including AI response
+      setInputText("");
+      
+      // Refetch to get latest messages including both user message and AI response
       refetch();
       
     } catch (error) {
       console.error("Failed to send message:", error);
       // TODO: Show user-friendly error toast
     }
-  }, [inputText, conversationId, sendUserMessage, sendForEncouragement, messages, refetch]);
+  }, [inputText, conversationId, isValidConversationId, sendForEncouragement, messages, refetch]);
 
   const onScrollToBottom = useCallback(() => {
     // Handler for FlatList onContentSizeChange - implementation handled in component
@@ -71,7 +73,7 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
     conversationId,
     messages: messages ?? [],
     loading: loadState === "loading",
-    error: errorMessage,
+    error: isValidConversationId ? errorMessage : "Invalid conversation ID",
     inputText,
     canSend,
     sending,
