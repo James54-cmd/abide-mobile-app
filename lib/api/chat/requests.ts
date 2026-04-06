@@ -21,6 +21,7 @@ export interface AiChatResponse {
     conversation_id: string;
     role: 'assistant';
     content: string;
+    encouragement?: any; // The structured encouragement JSON
     created_at: string;
     user_id: string;
   };
@@ -93,12 +94,15 @@ export async function postAiEncouragement(request: AiChatRequest): Promise<ChatM
       throw new Error(data.error);
     }
 
+    console.log('Encouragement data received:', data.message.encouragement);
+
     // Transform the response to match your ChatMessage type
     return {
       id: data.message.id,
       conversation_id: data.message.conversation_id,
       role: data.message.role,
       content: data.message.content,
+      encouragement: data.message.encouragement, // Include the encouragement JSON data
       created_at: data.message.created_at,
       user_id: data.message.user_id // Both user and assistant messages have user_id in your schema
     };

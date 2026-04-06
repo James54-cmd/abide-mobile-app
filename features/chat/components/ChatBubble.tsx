@@ -1,6 +1,7 @@
 import { colors } from "@/constants/theme";
 import type { ChatMessage } from "@/types";
 import { StyleSheet, Text, View } from "react-native";
+import { EnhancedEncouragementCard } from "./EnhancedEncouragementCard";
 
 interface Props {
   message: ChatMessage;
@@ -9,6 +10,21 @@ interface Props {
 export function ChatBubble({ message }: Props) {
   const isUser = message.role === "user";
 
+  // For assistant messages with enhanced encouragement, show structured layout
+  if (!isUser && message.encouragement) {
+    return (
+      <View style={styles.wrapAssistant}>
+        <View style={styles.assistantRow}>
+          <View style={styles.accentBar} />
+          <View style={styles.bubbleAssistant}>
+            <EnhancedEncouragementCard encouragement={message.encouragement} />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // Standard message layout (user messages and assistant without encouragement)
   return (
     <View style={isUser ? styles.wrapUser : styles.wrapAssistant}>
       {isUser ? (
@@ -17,7 +33,6 @@ export function ChatBubble({ message }: Props) {
         </View>
       ) : (
         <View style={styles.assistantRow}>
-          {/* Flush accent bar — separate View, not a border */}
           <View style={styles.accentBar} />
           <View style={styles.bubbleAssistant}>
             <Text style={styles.textAssistant}>{message.content}</Text>
@@ -58,7 +73,7 @@ const styles = StyleSheet.create({
   assistantRow: {
     flexDirection: "row",
     alignItems: "stretch",
-    maxWidth: "82%",
+    maxWidth: "90%", // Increased to accommodate enhanced content
     borderRadius: 20,
     borderBottomLeftRadius: 5,
     overflow: "hidden",
