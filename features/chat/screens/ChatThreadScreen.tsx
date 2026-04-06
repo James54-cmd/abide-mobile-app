@@ -15,6 +15,7 @@ import {
   View,
   type ListRenderItem,
 } from "react-native";
+import { useMemo } from "react";
 
 interface Props {
   conversationId: string;
@@ -27,6 +28,21 @@ interface Props {
 export function ChatThreadScreen({ conversationId }: Props) {
   // Rule 9: State lives in one hook per feature
   const state = useChatThreadScreenState(conversationId);
+
+  // Derive title from first user message if available
+  const title = useMemo(() => {
+    if (state.messages.length === 0) return "New conversation";
+    
+    const firstUserMessage = state.messages.find(msg => msg.role === "user");
+    if (firstUserMessage) {
+      const derivedTitle = firstUserMessage.content.trim().slice(0, 30);
+      return derivedTitle.length < firstUserMessage.content.trim().length 
+        ? `${derivedTitle}...` 
+        : derivedTitle;
+    }
+    
+    return "Conversation";
+  }, [state.messages]);
 
   const renderMessage: ListRenderItem<ChatMessage> = ({ item: message }) => {
     const isUser = message.role === "user";
@@ -71,10 +87,12 @@ export function ChatThreadScreen({ conversationId }: Props) {
         
         <View style={{ flex: 1 }}>
           <Text className="font-serif text-base font-medium text-ink" numberOfLines={1}>
-            {state.title}
+            {title}
           </Text>
           <Text className="font-sans text-xs text-muted/80">
-            {state.messages.length === 0 ? (
+            {state.loading ? (
+              "Loading..."
+            ) : state.messages.length === 0 ? (
               "Ready to listen"
             ) : (
               <>
@@ -120,6 +138,20 @@ export function ChatThreadScreen({ conversationId }: Props) {
           />
         )}
         
+        {/* Error state */}
+        {state.error && (
+          <View className="mx-4 mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+            <Text className="font-sans text-sm text-red-600">
+              {state.error}
+            </Text>
+            <Pressable onPress={state.refetch} className="mt-1">
+              <Text className="font-sans text-xs text-red-500 underline">
+                Try again
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
         {/* Input bar */}
         <View className="border-t border-muted/20 bg-cream px-4 py-3">
           <View className="flex-row items-end">
@@ -145,7 +177,7 @@ export function ChatThreadScreen({ conversationId }: Props) {
               }}
             >
               <Feather
-                name="send"
+                name={state.sending ? "loader" : "send"}
                 size={17}
                 color={state.canSend ? "#FFFFFF" : "rgba(140, 123, 106, 0.5)"}
               />
