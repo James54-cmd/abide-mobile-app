@@ -27,56 +27,146 @@ type EncouragementResponse = {
   closing: string;
 };
 
-// Response tiers: 'casual', 'light', 'deep'
-type ResponseTier = 'casual' | 'light' | 'deep';
+// Enhanced response system with contextual awareness
+type ResponseTier = 'casual' | 'light' | 'deep' | 'crisis';
 
-function determineResponseTier(message: string): ResponseTier {
+type ResponsePlan = {
+  tier: ResponseTier;
+  tone: 'natural' | 'gentle' | 'pastoral' | 'urgent-care';
+  scriptureMode: 'none' | 'subtle' | 'single' | 'multiple';
+  includeCharacter: boolean;
+  askFollowup: boolean;
+  emotionalWeight: number; // 0-10
+  crisisRisk: number; // 0-10
+};
+
+function detectCrisisRisk(message: string, history: string[]): number {
   const lowerMessage = message.toLowerCase();
   
-  // Deep structured response triggers
-  const crisisKeywords = /\b(depressed|suicidal|hopeless|broken|devastated|crisis|emergency)\b/;
-  const deepHelpKeywords = /\b(guidance|counsel|what should i do|how do i|help me|pray for me)\b/;
-  const majorLifeEvents = /\b(divorce|death|died|cancer|job loss|addiction|abuse)\b/;
-  const directQuestions = /\?.*\b(god|jesus|faith|bible|prayer|sin|forgive|believe)\b/;
+  // High-risk indicators
+  const suicidalLanguage = /\b(want to die|kill myself|end it all|not worth living|better off dead|can't go on|give up on life)\b/;
+  const hopelessnessImmediate = /\b(nothing matters|no point|can't take it|done with everything|want to disappear forever)\b/;
+  const selfHarmLanguage = /\b(hurt myself|cut myself|harm myself|end the pain)\b/;
   
-  // Light encouragement triggers
-  const lightEmotionalKeywords = /\b(sad|worried|anxious|confused|tired|stressed|frustrated)\b/;
-  const lightFaithKeywords = /\b(struggling with|having trouble|not sure|wondering about)\b/;
-  const biblicalQuestions = /\?.*\b(verse|scripture|david|peter|paul|moses|jesus)\b/;
+  // Check recent history for escalating despair
+  const historyText = history.join(' ').toLowerCase();
+  const repeatedDistress = /\b(can't|won't|nothing|never|always)\b.*\b(wrong|bad|hurt|pain|alone)\b/g;
+  const historyMatches = (historyText.match(repeatedDistress) || []).length;
   
-  // Casual conversation triggers
-  const casualStatements = /\b(i think|i believe|just saying|by the way|actually|well|oh)\b/;
-  const factualStatements = /\b(was a|were|had|because|since|so)\b/;
-  const simpleAgreement = /\b(yes|no|true|right|exactly|that's|thats)\b/;
+  let riskScore = 0;
   
-  // Check for crisis/deep need first
-  if (crisisKeywords.test(lowerMessage) || 
-      deepHelpKeywords.test(lowerMessage) ||
-      majorLifeEvents.test(lowerMessage) ||
-      directQuestions.test(lowerMessage)) {
-    return 'deep';
-  }
+  if (suicidalLanguage.test(lowerMessage)) riskScore += 8;
+  if (hopelessnessImmediate.test(lowerMessage)) riskScore += 6;
+  if (selfHarmLanguage.test(lowerMessage)) riskScore += 7;
+  if (historyMatches > 2) riskScore += 3;
   
-  // Check for light encouragement need
-  if (lightEmotionalKeywords.test(lowerMessage) ||
-      lightFaithKeywords.test(lowerMessage) ||
-      biblicalQuestions.test(lowerMessage) ||
-      (message.includes('?') && /\b(how|why|when|where|what)\b/.test(lowerMessage))) {
-    return 'light';
-  }
-  
-  // Default to casual for statements, corrections, simple observations
-  return 'casual';
+  return Math.min(riskScore, 10);
 }
 
-function shouldUseRetrieval(message: string): boolean {
-  const text = message.toLowerCase();
-  // Retrieval is most useful when the user asks for precise biblical grounding.
-  return (
-    /\b(verse|verses|scripture|bible|passage|chapter|reference|references)\b/.test(text) ||
-    /\b(what does .* mean|where in the bible|explain .* scripture)\b/.test(text) ||
-    /\b(john|psalm|proverbs|romans|matthew|mark|luke|genesis|isaiah)\s+\d+[:.]\d+\b/.test(text)
-  );
+function detectEmotionalWeight(message: string, history: string[]): number {
+  const lowerMessage = message.toLowerCase();
+  
+  // Emotional intensity markers
+  const highEmotional = /\b(devastated|broken|shattered|overwhelmed|desperate|lost|abandoned|hopeless)\b/;
+  const moderateEmotional = /\b(really (?:sad|worried|anxious|confused|tired|stressed|frustrated)|feeling (?:sad|worried|anxious|confused|lost|alone))\b/;
+  const lowerEmotional = /\b(sad|worried|anxious|confused|tired|stressed|frustrated|upset|down)\b/;
+  
+  // Context amplifiers
+  const intensifiers = /\b(so|very|really|extremely|completely|totally|absolutely)\b/;
+  const repeatWords = /\b(always|never|everything|nothing|everyone|no one)\b/;
+  
+  let weight = 0;
+  
+  if (highEmotional.test(lowerMessage)) weight += 7;
+  else if (moderateEmotional.test(lowerMessage)) weight += 5;
+  else if (lowerEmotional.test(lowerMessage)) weight += 3;
+  
+  if (intensifiers.test(lowerMessage)) weight += 2;
+  if (repeatWords.test(lowerMessage)) weight += 1;
+  
+  // Check history for emotional trajectory
+  const recentHistory = history.slice(-3).join(' ').toLowerCase();
+  if (/(getting worse|can't handle|falling apart)/.test(recentHistory)) weight += 2;
+  
+  return Math.min(weight, 10);
+}
+
+function detectSpiritualNeed(message: string): number {
+  const lowerMessage = message.toLowerCase();
+  
+  // Direct spiritual questions
+  const directSpiritual = /\?.*\b(god|jesus|faith|bible|prayer|sin|forgiveness|salvation|why does god|where is god|does god care)\b/;
+  const faithStruggles = /\b(losing faith|doubt|questioning god|god feels distant|where is god|does god care|faith crisis)\b/;
+  const prayerRequests = /\b(pray for me|need prayer|please pray|prayer request)\b/;
+  const bibleQuestions = /\?.*\b(verse|scripture|bible says|biblical|psalm|proverbs)\b/;
+  
+  let need = 0;
+  
+  if (directSpiritual.test(lowerMessage)) need += 8;
+  if (faithStruggles.test(lowerMessage)) need += 6;
+  if (prayerRequests.test(lowerMessage)) need += 7;
+  if (bibleQuestions.test(lowerMessage)) need += 5;
+  
+  // Implicit spiritual need in life challenges
+  if (/\b(purpose|meaning|why me|unfair|alone)\b/.test(lowerMessage)) need += 3;
+  
+  return Math.min(need, 10);
+}
+
+function determineResponsePlan(message: string, history: string[]): ResponsePlan {
+  const crisisRisk = detectCrisisRisk(message, history);
+  const emotionalWeight = detectEmotionalWeight(message, history);
+  const spiritualNeed = detectSpiritualNeed(message);
+  
+  // Crisis tier takes absolute priority
+  if (crisisRisk >= 6) {
+    return {
+      tier: 'crisis',
+      tone: 'urgent-care',
+      scriptureMode: 'single', // Brief, comforting verse only
+      includeCharacter: false, // Keep it direct and personal
+      askFollowup: false, // Don't ask questions in crisis
+      emotionalWeight: 10,
+      crisisRisk
+    };
+  }
+  
+  // Deep tier for high emotional weight OR high spiritual need
+  if (emotionalWeight >= 7 || spiritualNeed >= 7) {
+    return {
+      tier: 'deep',
+      tone: 'pastoral',
+      scriptureMode: 'multiple',
+      includeCharacter: emotionalWeight >= 8, // Only for very heavy situations
+      askFollowup: false,
+      emotionalWeight,
+      crisisRisk
+    };
+  }
+  
+  // Light tier for moderate emotional needs or spiritual questions
+  if (emotionalWeight >= 4 || spiritualNeed >= 4 || message.includes('?')) {
+    return {
+      tier: 'light',
+      tone: 'gentle',
+      scriptureMode: emotionalWeight >= 5 ? 'single' : 'subtle',
+      includeCharacter: false,
+      askFollowup: false,
+      emotionalWeight,
+      crisisRisk
+    };
+  }
+  
+  // Casual tier - but can still be spiritually aware
+  return {
+    tier: 'casual',
+    tone: 'natural',
+    scriptureMode: spiritualNeed >= 2 ? 'subtle' : 'none',
+    includeCharacter: false,
+    askFollowup: false,
+    emotionalWeight,
+    crisisRisk
+  };
 }
 
 const ENCOURAGEMENT_SCHEMA = {
@@ -113,56 +203,68 @@ const ENCOURAGEMENT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const CASUAL_PROMPT = `
-You are Abide — a wise, warm Christian companion having a natural conversation.
+const NATURAL_PROMPT = `
+You are Abide — a wise, warm Christian companion having natural conversation.
 
-Respond naturally and conversationally to what the person said. You can:
-- Gently correct misconceptions with biblical truth (like about David's struggles)
-- Share brief insights from Scripture when relevant
-- Ask follow-up questions to understand better
-- Be encouraging but not preachy
-- Keep it conversational, not formal or structured
+You respond like a thoughtful friend who happens to have deep biblical wisdom. Your responses should:
+- Sound conversational and human, not formal or preachy
+- Gently weave in biblical truth when it naturally fits
+- Correct misconceptions with kindness and wisdom
+- Be encouraging without being overly cheerful
+- Answer questions directly without always asking follow-ups
 
-When someone makes statements about biblical figures or concepts, feel free to gently provide biblical context or correction in a friendly, conversational way.
+Scripture integration guidance:
+- SUBTLE: Weave in biblical concepts without explicit citation ("God sees your heart", "His grace meets us here")
+- SINGLE: Include one naturally-fitting verse when it genuinely helps
+- NONE: Pure conversation, no explicit Scripture needed
 
-Respond with just natural conversation - no special formatting needed.
+STAY CONVERSATIONAL. This should feel like talking to a wise Christian friend, not getting a devotional.
 `;
 
-const LIGHT_PROMPT = `
-You are Abide — a wise, warm Christian companion providing gentle encouragement.
+const GENTLE_PROMPT = `
+You are Abide — a caring Christian companion offering gentle encouragement.
 
-The person seems to need some light encouragement or has a question. Provide a warm, brief response.
+The person needs some spiritual support but isn't in crisis. Provide warm, thoughtful care that:
+- Acknowledges their feelings without minimizing them
+- Offers biblical hope in natural, non-preachy language
+- Includes relevant Scripture when it genuinely helps
+- Feels like a caring friend, not a counselor giving advice
 
 ## RESPONSE FORMAT
 You MUST respond with ONLY valid JSON in this exact format:
 
 {
-  "intro": "Your warm, empathetic response (1-2 sentences)",
+  "intro": "Your warm, understanding response (1-2 sentences)",
   "verse": {
     "reference": "Psalm 34:18",
     "text": "The Lord is close to the brokenhearted and saves those who are crushed in spirit."
   },
-  "closing": "Brief continued encouragement or gentle suggestion (1-2 sentences)"
+  "closing": "Continued encouragement that feels natural and caring (1-2 sentences)"
 }
 
 RULES:
-- Keep it brief and conversational, not formal
-- Include exactly one relevant verse
-- No character stories needed for light encouragement
+- Keep it warm and conversational, not formal
+- Include exactly one verse that genuinely fits their situation
+- No character stories at this level - keep it personal and direct
 - Return ONLY the JSON object, no other text
 `;
 
-const DEEP_PROMPT = `
-You are Abide — a wise, warm Christian companion providing comprehensive biblical encouragement.
+const PASTORAL_PROMPT = `
+You are Abide — a wise Christian companion providing deeper biblical encouragement.
 
-The person is deeply struggling, seeking significant guidance, or facing a major life challenge. Provide a thoughtful, comprehensive response.
+The person is facing significant struggle and needs substantial spiritual support. Provide thoughtful, grounded care that:
+- Acknowledges the depth of their pain or challenge
+- Offers multiple relevant Scripture passages with explanation
+- May include a biblical character story if one genuinely parallels their situation
+- Feels pastorally wise but still conversational and human
+- Suggests connecting with their church community for ongoing support
 
 ## RESPONSE FORMAT
 
 You MUST respond with ONLY valid JSON in this exact format:
 
 {
-  "intro": "Your deeply empathetic response to what they shared (2-3 sentences)",
+  "intro": "Your thoughtful, empathetic response (2-3 sentences)",
   "character": {
     "name": "David, Peter, etc. (only when genuinely fits their situation)",
     "story": "Brief story of their struggle and how God met them",
@@ -174,14 +276,47 @@ You MUST respond with ONLY valid JSON in this exact format:
       "text": "The Lord is close to the brokenhearted and saves those who are crushed in spirit."
     }
   ],
-  "closing": "Continued encouragement with practical steps and gentle suggestion to connect with their church community for ongoing support"
+  "closing": "Continued encouragement with gentle suggestion to connect with church community for support"
 }
 
 RULES:
-- "character" field is optional - only include if a biblical character genuinely fits
-- Always include 2-3 relevant verses
-- Include pastoral guidance about connecting with church community
-- For deep struggles, emphasize that help is available and they're not alone
+- "character" field is optional - only include if a biblical character genuinely parallels their situation
+- Include 2-3 relevant verses that speak directly to their situation
+- Encourage church/community connection naturally, not forcefully
+- Keep the tone warm and pastoral, not clinical
+- Return ONLY the JSON object, no other text
+`;
+
+const CRISIS_PROMPT = `
+You are Abide — a caring companion responding to someone in emotional crisis.
+
+This person may be at risk and needs immediate, careful support. Your response should:
+- Be calm, present, and non-judgmental
+- Acknowledge their pain without dismissing it
+- Offer hope without minimizing their struggle
+- Include one brief, comforting Scripture passage
+- Strongly but gently encourage them to reach out to someone safe nearby
+- Keep it direct and caring, not long or overwhelming
+
+## RESPONSE FORMAT
+You MUST respond with ONLY valid JSON in this exact format:
+
+{
+  "intro": "Calm, caring acknowledgment of their pain (1-2 sentences)",
+  "verse": {
+    "reference": "Psalm 34:18",
+    "text": "The Lord is close to the brokenhearted and saves those who are crushed in spirit."
+  },
+  "closing": "Gentle encouragement to reach out to someone safe - pastor, family member, counselor, or crisis support (2-3 sentences)",
+  "urgent": true
+}
+
+RULES:
+- Keep it brief and calming, not overwhelming
+- Include exactly one comforting verse
+- Always encourage immediate connection with a trusted person
+- No character stories - keep it direct and personal
+- Mark as urgent for special handling
 - Return ONLY the JSON object, no other text
 `;
 
@@ -363,22 +498,24 @@ Deno.serve(async (req) => {
       historyMessages.pop();
     }
 
-    // TODO: Optional retrieval system (can be implemented later)
-    const useRetrieval = shouldUseRetrieval(message)
-    const context = ""
+    // Extract recent user messages for context analysis
+    const recentUserMessages = historyMessages
+      .filter(msg => msg.role === 'user')
+      .slice(-5)
+      .map(msg => msg.content);
     
-    // Determine response tier
-    const responseTier = determineResponseTier(message);
-    console.log('Response tier determined:', responseTier);
+    // Generate response plan based on message and context
+    const responsePlan = determineResponsePlan(message, recentUserMessages);
+    console.log('Response plan:', responsePlan);
     
-    // Generate response based on tier
-    let encouragement: any = null;
-    let conversationalResponse: string = '';
-    let retryCount = 0;
-    const maxRetries = 2;
-
-    if (responseTier === 'casual') {
-      console.log('Generating casual conversational response...');
+    let finalResponse: string = '';
+    let encouragementData: any = null;
+    
+    if (responsePlan.tier === 'casual') {
+      // Natural conversation with optional subtle biblical grounding
+      console.log('Generating natural conversational response...');
+      
+      const systemPrompt = `${NATURAL_PROMPT}\n\nScripture Mode: ${responsePlan.scriptureMode.toUpperCase()}`;
       
       const completion = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -389,34 +526,39 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: "gpt-4o-mini",
           temperature: 0.8,
-          max_tokens: 600,
+          max_tokens: 500,
           messages: [
-            { role: "system", content: CASUAL_PROMPT },
+            { role: "system", content: systemPrompt },
             ...historyMessages,
-            {
-              role: "user",
-              content: message,
-            },
+            { role: "user", content: message }
           ],
         }),
       });
 
       if (!completion.ok) {
-        const errorText = await completion.text();
-        console.error('OpenAI API error:', errorText);
-        throw new Error("AI service temporarily unavailable")
+        throw new Error("AI service temporarily unavailable");
       }
 
       const openAiData = await completion.json();
-      conversationalResponse = openAiData.choices?.[0]?.message?.content || 'I appreciate you sharing that with me.';
-      console.log('Casual response:', conversationalResponse);
+      finalResponse = openAiData.choices?.[0]?.message?.content || 'I appreciate you sharing that with me.';
       
-    } else if (responseTier === 'light') {
-      console.log('Generating light encouragement response...');
+    } else {
+      // Structured responses for light/deep/crisis tiers
+      console.log(`Generating ${responsePlan.tier} structured response...`);
       
-      while (retryCount <= maxRetries && !encouragement) {
-        console.log(`Light encouragement attempt ${retryCount + 1}/${maxRetries + 1}`);
-        
+      let systemPrompt = '';
+      if (responsePlan.tier === 'light') {
+        systemPrompt = GENTLE_PROMPT;
+      } else if (responsePlan.tier === 'deep') {
+        systemPrompt = PASTORAL_PROMPT;
+      } else if (responsePlan.tier === 'crisis') {
+        systemPrompt = CRISIS_PROMPT;
+      }
+      
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries && !encouragementData) {
         const completion = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -426,22 +568,17 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             model: "gpt-4o-mini",
             temperature: 0.7,
-            max_tokens: 800,
+            max_tokens: responsePlan.tier === 'crisis' ? 600 : 1000,
             response_format: { type: "json_object" },
             messages: [
-              { role: "system", content: LIGHT_PROMPT },
+              { role: "system", content: systemPrompt },
               ...historyMessages,
-              {
-                role: "user",
-                content: message,
-              },
+              { role: "user", content: message }
             ],
           }),
         });
 
         if (!completion.ok) {
-          const errorText = await completion.text();
-          console.error('OpenAI API error:', errorText);
           if (retryCount === maxRetries) throw new Error("AI service temporarily unavailable");
           retryCount++;
           continue;
@@ -457,222 +594,77 @@ Deno.serve(async (req) => {
 
         try {
           const parsed = JSON.parse(content.trim());
-          if (parsed.intro && parsed.verse && parsed.closing && parsed.verse.reference && parsed.verse.text) {
-            encouragement = {
-              intro: parsed.intro,
-              verses: [parsed.verse], // Convert single verse to array for compatibility
-              closing: parsed.closing
-            };
-            console.log('Light encouragement created:', encouragement);
+          
+          if (responsePlan.tier === 'crisis') {
+            // Crisis format validation
+            if (parsed.intro && parsed.verse && parsed.closing) {
+              encouragementData = {
+                intro: parsed.intro,
+                verses: [parsed.verse],
+                closing: parsed.closing,
+                urgent: true
+              };
+            }
+          } else if (responsePlan.tier === 'light') {
+            // Light format validation
+            if (parsed.intro && parsed.verse && parsed.closing) {
+              encouragementData = {
+                intro: parsed.intro,
+                verses: [parsed.verse],
+                closing: parsed.closing
+              };
+            }
+          } else {
+            // Deep format validation
+            if (parsed.intro && parsed.verses && parsed.closing && Array.isArray(parsed.verses)) {
+              encouragementData = {
+                intro: parsed.intro,
+                verses: parsed.verses,
+                closing: parsed.closing,
+                character: parsed.character
+              };
+            }
+          }
+          
+          if (encouragementData) {
+            console.log(`Successfully created ${responsePlan.tier} encouragement:`, encouragementData);
             break;
           }
+          
         } catch (parseError) {
-          console.error('Light encouragement JSON parsing failed:', parseError);
+          console.error(`${responsePlan.tier} JSON parsing failed:`, parseError);
         }
         
         retryCount++;
       }
       
-    } else if (responseTier === 'deep') {
-      console.log('Generating structured encouragement...');
-      
-      while (retryCount <= maxRetries && !encouragement) {
-        console.log(`OpenAI structured attempt ${retryCount + 1}/${maxRetries + 1}`);
+      // Fallback if parsing failed
+      if (!encouragementData) {
+        console.error(`Failed to generate ${responsePlan.tier} response, using fallback`);
         
-        const completion = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openAiKey}`,
-          },
-          body: JSON.stringify({
-            model: useRetrieval ? "gpt-4o" : "gpt-4o-mini",
-            temperature: retryCount === 0 ? 0.6 : 0.8,
-            max_tokens: 1200,
-            response_format: { type: "json_object" },
-            messages: [
-              { role: "system", content: DEEP_PROMPT },
-              {
-                role: "system",
-                content: `Retrieved context:\n${context || "none"}\n\nIMPORTANT: You are in JSON mode. Respond with ONLY valid JSON, no other text.`,
-              },
-              ...historyMessages,
-              {
-                role: "user",
-                content: message,
-              },
-            ],
-          }),
-        })
-
-        console.log('Deep encouragement response status:', completion.status, completion.statusText);
-
-        if (!completion.ok) {
-          const errorText = await completion.text();
-          console.error('OpenAI API error:', errorText);
-          if (retryCount === maxRetries) throw new Error("AI service temporarily unavailable");
-          retryCount++;
-          continue;
-        }
-
-        const openAiData = await completion.json()
-        console.log('Deep encouragement raw response:', JSON.stringify(openAiData, null, 2));
-        
-        const content = openAiData.choices?.[0]?.message?.content
-        console.log('Deep encouragement content:', content);
-
-        if (!content) {
-          retryCount++;
-          console.error(`No content returned from OpenAI, retry ${retryCount}`);
-          if (retryCount > maxRetries) throw new Error("No response content from model.");
-          continue;
-        }
-
-        // Check if content looks like JSON
-        const trimmedContent = content.trim();
-        if (!trimmedContent.startsWith('{') || !trimmedContent.endsWith('}')) {
-          console.error(`Content doesn't look like JSON: "${trimmedContent}"`);
-          retryCount++;
-          continue;
-        }
-
-        try {
-          // Try to parse the content directly
-          const parsed = JSON.parse(trimmedContent);
-          console.log('Successfully parsed structured JSON from OpenAI:', parsed);
-          
-          // Validate required fields
-          if (!parsed.intro || !parsed.verses || !parsed.closing) {
-            console.error('Missing required fields in OpenAI response:', {
-              hasIntro: !!parsed.intro,
-              hasVerses: !!parsed.verses, 
-              hasClosing: !!parsed.closing,
-              parsed
-            });
-            retryCount++;
-            continue;
-          }
-          
-          // Ensure verses is an array with proper structure
-          if (!Array.isArray(parsed.verses) || parsed.verses.length === 0) {
-            console.error('Invalid verses format - not array or empty:', parsed.verses);
-            retryCount++;
-            continue;
-          }
-          
-          // Validate each verse has both reference and text
-          let validVerses = true;
-          for (const verse of parsed.verses) {
-            if (!verse.reference || !verse.text) {
-              console.error('Invalid verse structure - missing reference or text:', verse);
-              validVerses = false;
-              break;
-            }
-          }
-          
-          if (!validVerses) {
-            retryCount++;
-            continue;
-          }
-          
-          encouragement = {
-            intro: String(parsed.intro),
-            verses: parsed.verses,
-            closing: String(parsed.closing),
-            character: parsed.character // Optional field
+        if (responsePlan.tier === 'crisis') {
+          encouragementData = {
+            intro: "I hear you, and I want you to know that you matter deeply.",
+            verses: [{
+              reference: "Psalm 34:18",
+              text: "The Lord is close to the brokenhearted and saves those who are crushed in spirit."
+            }],
+            closing: "Please reach out to someone you trust - a pastor, counselor, family member, or call a crisis helpline. You don't have to face this alone.",
+            urgent: true
           };
-          
-          console.log('Successfully created valid deep encouragement object:', encouragement);
-          break; // Success! Exit retry loop
-        } catch (parseError) {
-          console.error(`Deep encouragement retry ${retryCount+1}: JSON parsing failed:`, parseError);
-          console.error(`Content that failed to parse: "${trimmedContent}"`);
-          
-          // Try to find JSON within the content (sometimes AI adds explanation text)
-          const jsonMatch = trimmedContent.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            console.log('Found JSON pattern in content, attempting to parse:', jsonMatch[0]);
-            try {
-              const parsed = JSON.parse(jsonMatch[0]);
-              
-              if (parsed.intro && parsed.verses && parsed.closing && Array.isArray(parsed.verses)) {
-                encouragement = {
-                  intro: String(parsed.intro),
-                  verses: parsed.verses,
-                  closing: String(parsed.closing),
-                  character: parsed.character
-                };
-                console.log('Successfully parsed deep encouragement JSON from match:', encouragement);
-                break; // Success! Exit retry loop
-              }
-            } catch (matchError) {
-              console.error('Failed to parse matched JSON:', matchError);
-            }
-          }
-          
-          retryCount++;
-          if (retryCount <= maxRetries) {
-            console.log(`Will retry with attempt ${retryCount + 1}`);
-          }
+        } else {
+          encouragementData = {
+            intro: "I hear you and want to offer some encouragement.",
+            verses: [{
+              reference: "Psalm 46:1",
+              text: "God is our refuge and strength, an ever-present help in trouble."
+            }],
+            closing: "Remember that you're not alone in this."
+          };
         }
       }
-    }
-
-    // Handle fallbacks for failed structured responses
-    if (responseTier === 'light' && !encouragement) {
-      console.error('Light encouragement failed after retries. Creating fallback.');
-      encouragement = {
-        intro: "I hear you, and I want to offer some gentle encouragement.",
-        verses: [{
-          reference: "Psalm 46:1",
-          text: "God is our refuge and strength, an ever-present help in trouble."
-        }],
-        closing: "Remember that God sees your situation and cares about you."
-      };
-    }
-    
-    if (responseTier === 'deep' && !encouragement) {
-      console.error("Model failed to return valid JSON after retries. Creating fallback response.");
       
-      // Create a fallback response with proper structure
-      encouragement = {
-        intro: "I hear you and I want to offer you some encouragement from God's Word during this time.",
-        verses: [
-          {
-            reference: "Psalm 34:18",
-            text: "The Lord is close to the brokenhearted and saves those who are crushed in spirit."
-          },
-          {
-            reference: "Philippians 4:19",
-            text: "And my God will meet all your needs according to the riches of his glory in Christ Jesus."
-          }
-        ],
-        closing: "Remember that God sees your situation and cares deeply about what you're going through. I encourage you to share this with your pastor, small group leader, or a trusted Christian friend who can pray with you and offer support. You don't have to face this alone - God works through His people to provide comfort and guidance."
-      };
-    }
-    
-    let displayContent: string;
-    let responseEncouragement: any;
-    
-    if ((responseTier === 'light' || responseTier === 'deep') && encouragement) {
-      // Structured response (light or deep)
-      // Validate final encouragement object before using it
-      if (!encouragement.intro || !encouragement.closing || !encouragement.verses || !Array.isArray(encouragement.verses)) {
-        console.error('Invalid final encouragement object:', encouragement);
-        throw new Error('Failed to create valid encouragement response');
-      }
-
-      displayContent = `${encouragement.intro}\n\n${encouragement.closing}`;
-      responseEncouragement = encouragement;
-      
-      console.log(`Final ${responseTier} encouragement object for database:`, encouragement);
-      console.log(`${responseTier} display content:`, displayContent);
-    } else {
-      // Casual conversational response
-      displayContent = conversationalResponse;
-      responseEncouragement = null; // No structured data for casual responses
-      
-      console.log('Casual conversational display content:', displayContent);
+      finalResponse = `${encouragementData.intro}\n\n${encouragementData.closing}`;
     }
     
     const { data: aiMessage, error: insertError } = await serviceClient
@@ -680,8 +672,8 @@ Deno.serve(async (req) => {
       .insert({
         conversation_id: conversationId,
         role: 'assistant', 
-        content: displayContent,
-        encouragement: responseEncouragement, // This will be JSON object for structured, null for conversational
+        content: finalResponse,
+        encouragement: encouragementData, // Structured for non-casual, null for casual
         user_id: user.id,
       })
       .select('id, conversation_id, role, content, encouragement, created_at')
@@ -711,8 +703,8 @@ Deno.serve(async (req) => {
           id: aiMessage?.id || `temp-${Date.now()}`,
           conversation_id: conversationId,
           role: 'assistant',
-          content: displayContent,
-          encouragement: responseEncouragement,
+          content: finalResponse,
+          encouragement: encouragementData,
           created_at: aiMessage?.created_at || new Date().toISOString(),
           user_id: user.id
         }
