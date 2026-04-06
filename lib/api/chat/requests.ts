@@ -1,5 +1,4 @@
 import { supabase } from "@/lib/supabase";
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/constants/config";
 import type { ChatMessage } from "@/types";
 
 /**
@@ -126,75 +125,4 @@ export async function postAiEncouragement(request: AiChatRequest): Promise<ChatM
 
     throw new Error(message);
   }
-}
-
-/**
- * DEBUG ONLY - Raw fetch to bypass invoke() wrapper and see actual error responses
- * 
- * Use this temporarily to debug auth failures by seeing the raw JSON response
- * instead of the wrapped FunctionsHttpError from invoke()
- */
-export async function debugAiEncouragement(request: AiChatRequest) {
-  console.log('DEBUG: Analyzing JWT claims...');
-  
-  // Get fresh session and decode JWT completely
-  const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-  
-  if (refreshError) {
-    console.error('Failed to refresh session:', refreshError);
-    throw new Error('Failed to refresh session');
-  }
-  
-  const { session } = refreshData;
-  
-  if (!session?.access_token) {
-    throw new Error("No active session after refresh");
-  }
-
-  // Decode JWT payload to check claims
-  const jwtParts = session.access_token.split('.');
-  const header = JSON.parse(atob(jwtParts[0]));
-  const payload = JSON.parse(atob(jwtParts[1]));
-  
-  console.log('JWT Header:', header);
-  console.log('JWT Payload:', {
-    iss: payload.iss,
-    aud: payload.aud, 
-    sub: payload.sub,
-    role: payload.role,
-    exp: payload.exp,
-    iat: payload.iat,
-    email: payload.email,
-    app_metadata: payload.app_metadata
-  });
-  
-  // Check if JWT is expired
-  const now = Date.now() / 1000;
-  const expiresIn = payload.exp - now;
-  console.log('JWT expires in:', Math.round(expiresIn / 60), 'minutes');
-
-  const url = `${SUPABASE_URL}/functions/v1/ai-chat`;
-  console.log('Making request to:', url);
-  console.log('Expected aud should be:', SUPABASE_URL.replace('https://', '').replace('.supabase.co', ''));
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": SUPABASE_ANON_KEY,
-      "Authorization": `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify(request),
-  });
-
-  const text = await res.text();
-
-  console.log("RAW STATUS:", res.status);
-  console.log("RAW BODY:", text);
-
-  if (!res.ok) {
-    throw new Error(`Function failed: ${res.status} ${text}`);
-  }
-
-  return JSON.parse(text);
 }

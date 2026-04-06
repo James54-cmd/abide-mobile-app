@@ -5,7 +5,7 @@ import {
   createConversation,
   sendChatMessage 
 } from "@/lib/api/conversations/requests";
-import { postAiEncouragement, debugAiEncouragement } from "@/lib/api/chat/requests";
+import { postAiEncouragement } from "@/lib/api/chat/requests";
 import type { ChatMessage, Conversation } from "@/types";
 import { useCallback, useState } from "react";
 
@@ -59,22 +59,22 @@ export function useCreateConversation() {
 
 export function useSendMessage() {
   const [sending, setSending] = useState(false);
-  
+
+  // Send user message immediately (appears right away in chat)
   const sendUserMessage = useCallback(async (
     conversationId: string,
     content: string
   ): Promise<ChatMessage> => {
-    // Note: User messages are now stored automatically by the AI Edge Function
-    // This function is kept for API compatibility but should not be used directly.
-    // Use sendForEncouragement instead - it handles both user message storage and AI response.
-    throw new Error("Use sendForEncouragement instead - user messages are stored automatically");
+    return await sendChatMessage(conversationId, content);
   }, []);
 
   /**
-   * Send message for AI encouragement using secure Edge Function
+   * Get AI response only - user message should already be saved and visible
    * 
-   * This replaces the old postEncouragement that used client-side API calls.
-   * Now routes through Supabase Edge Function for proper security.
+   * This creates a natural chat flow:
+   * 1. User message appears immediately
+   * 2. "AI is typing..." can be shown
+   * 3. AI response appears when ready
    */
   const sendForEncouragement = useCallback(async (
     conversationId: string,
@@ -83,7 +83,7 @@ export function useSendMessage() {
   ): Promise<ChatMessage> => {
     setSending(true);
     try {
-      // Back to production function - should work with --no-verify-jwt
+      // AI function now only returns AI response (doesn't store user message)
       return await postAiEncouragement({
         conversationId,
         message,

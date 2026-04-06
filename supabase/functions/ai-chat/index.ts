@@ -4,8 +4,8 @@ import { corsHeaders } from "../_shared/cors.ts"
 /**
  * Secure AI Chat Edge Function
  * 
- * Handles OpenAI requests server-side with proper authentication,
- * validation, and rate limiting. Never exposes API keys to client.
+ * Handles OpenAI requests server-side with proper authentication and rate limiting.
+ * Returns only AI assistant responses (user messages handled by client).
  */
 
 Deno.serve(async (req) => {
@@ -71,15 +71,11 @@ Deno.serve(async (req) => {
         role: payload.role
       }
       
-      console.log("User authenticated via manual JWT validation:", user.id)
-      
     } catch (error) {
-      console.error("JWT validation failed:", error)
       return new Response(
         JSON.stringify({
           success: false,
           error: "Invalid or expired JWT",
-          details: error.message
         }),
         {
           status: 401,
@@ -107,8 +103,6 @@ Deno.serve(async (req) => {
     }
 
     // Verify user owns conversation
-    console.log('Checking conversation ownership for:', conversationId, 'by user:', user.id)
-    
     const { data: conversation, error: convError } = await serviceClient
       .from('chat_conversations')
       .select('id, user_id')
@@ -117,7 +111,6 @@ Deno.serve(async (req) => {
       .single()
 
     if (convError) {
-      console.error('Conversation query error:', convError)
       if (convError.code === 'PGRST116') {
         throw new Error("Conversation not found - please create a new conversation")
       }
@@ -135,7 +128,6 @@ Deno.serve(async (req) => {
       .gte('created_at', oneMinuteAgo)
 
     if (rateLimitError) {
-      console.error("Rate limit query error:", rateLimitError)
       throw new Error("Failed to validate rate limit")
     }
 
@@ -192,8 +184,6 @@ Format your response naturally - no special JSON structure needed.`
     })
 
     if (!openAiResponse.ok) {
-      const errorData = await openAiResponse.text()
-      console.error('OpenAI API Error:', openAiResponse.status, errorData)
       throw new Error("AI service temporarily unavailable")
     }
 
@@ -204,20 +194,7 @@ Format your response naturally - no special JSON structure needed.`
       throw new Error("No response from AI service")
     }
 
-    // Store messages in database
-    const { error: userMsgError } = await serviceClient.from('chat_messages').insert({
-      conversation_id: conversationId,
-      role: 'user',
-      content: message,
-      user_id: user.id,
-      encouragement: null
-    })
-
-    if (userMsgError) {
-      console.error('Failed to store user message:', userMsgError)
-      throw new Error("Failed to store message")
-    }
-
+    // Store only AI response in database (user message already stored by client)
     const { data: aiMessage, error: insertError } = await serviceClient
       .from('chat_messages')
       .insert({
@@ -231,7 +208,7 @@ Format your response naturally - no special JSON structure needed.`
       .single()
 
     if (insertError) {
-      console.error('Database insert error:', insertError)
+      // Still return the AI response even if storage fails
     }
 
     // Return successful response

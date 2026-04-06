@@ -26,6 +26,7 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
   } = useGetConversationMessages(isValidConversationId ? conversationId : '');
 
   const { 
+    sendUserMessage,
     sendForEncouragement, 
     sending 
   } = useSendMessage();
@@ -49,21 +50,27 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
     
     try {
       void triggerSend();
-      
-      // New secure flow: AI function handles both user message storage AND AI response
-      const currentMessages = messages ?? [];
-      await sendForEncouragement(conversationId, trimmed, currentMessages);
-      
       setInputText("");
       
-      // Refetch to get latest messages including both user message and AI response
+      // Natural chat flow:
+      // 1. Send user message first (appears immediately)
+      const userMessage = await sendUserMessage(conversationId, trimmed);
+      
+      // 2. Refresh to show user message right away
+      refetch();
+      
+      // 3. Get AI response (user can see "AI is typing..." here)
+      const currentMessages = [...(messages ?? []), userMessage];
+      const aiResponse = await sendForEncouragement(conversationId, trimmed, currentMessages);
+      
+      // 4. Refresh again to show AI response when ready
       refetch();
       
     } catch (error) {
       console.error("Failed to send message:", error);
       // TODO: Show user-friendly error toast
     }
-  }, [inputText, conversationId, isValidConversationId, sendForEncouragement, messages, refetch]);
+  }, [inputText, conversationId, isValidConversationId, sendUserMessage, sendForEncouragement, messages, refetch]);
 
   const onScrollToBottom = useCallback(() => {
     // Handler for FlatList onContentSizeChange - implementation handled in component
