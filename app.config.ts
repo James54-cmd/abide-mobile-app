@@ -18,13 +18,19 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     process.env.NEXT_PUBLIC_API_URL?.trim() ||
     "";
 
+  const openaiApiKey =
+    process.env.EXPO_PUBLIC_OPENAI_API_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_OPENAI_API_KEY?.trim() ||
+    "";
+
   return {
     ...config,
     extra: {
       ...config.extra,
       supabaseUrl,
       supabaseAnonKey,
-      apiUrl
+      apiUrl,
+      openaiApiKey
     }
   } as ExpoConfig;
 };

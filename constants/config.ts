@@ -4,6 +4,7 @@ type Extra = {
   supabaseUrl?: string;
   supabaseAnonKey?: string;
   apiUrl?: string;
+  openaiApiKey?: string;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
@@ -29,4 +30,10 @@ export const SUPABASE_ANON_KEY =
   extra.supabaseAnonKey?.trim() ||
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+  "";
+
+export const OPENAI_API_KEY =
+  extra.openaiApiKey?.trim() ||
+  process.env.EXPO_PUBLIC_OPENAI_API_KEY?.trim() ||
+  process.env.NEXT_PUBLIC_OPENAI_API_KEY?.trim() ||
   "";
