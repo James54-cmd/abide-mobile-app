@@ -306,10 +306,12 @@ export function useDeleteConversation() {
 
 /**
  * Hook for renaming conversations - follows SKILL.md Rule 6 (data hooks in lib/)
+ * Enhanced with optimistic updates for better UX
  */
 export function useRenameConversation() {
   const [renaming, setRenaming] = useState<string | null>(null); // Track which conversation is being renamed
   const [error, setError] = useState<ChatError | null>(null);
+  const [optimisticUpdates, setOptimisticUpdates] = useState<Map<string, string>>(new Map());
 
   const rename = useCallback(async (
     conversationId: string, 
@@ -335,13 +337,30 @@ export function useRenameConversation() {
       return { error: validationError };
     }
 
+    // Optimistic update: immediately update local title
+    setOptimisticUpdates(prev => new Map(prev).set(conversationId, trimmedTitle));
     setRenaming(conversationId);
     setError(null);
     
     try {
       const updatedConversation = await updateConversationTitle(conversationId, trimmedTitle);
+      
+      // Clear optimistic update on success - realtime will handle the final update
+      setOptimisticUpdates(prev => {
+        const updated = new Map(prev);
+        updated.delete(conversationId);
+        return updated;
+      });
+      
       return { conversation: updatedConversation };
     } catch (err) {
+      // Revert optimistic update on failure
+      setOptimisticUpdates(prev => {
+        const updated = new Map(prev);
+        updated.delete(conversationId);
+        return updated;
+      });
+      
       const chatError = normalizeChatError(err);
       setError(chatError);
       return { error: chatError };
@@ -350,7 +369,12 @@ export function useRenameConversation() {
     }
   }, []);
 
-  return { renameConversation: rename, renaming, error };
+  // Helper function to get optimistic title for a conversation
+  const getOptimisticTitle = useCallback((conversationId: string, originalTitle: string) => {
+    return optimisticUpdates.get(conversationId) || originalTitle;
+  }, [optimisticUpdates]);
+
+  return { renameConversation: rename, renaming, error, getOptimisticTitle };
 }
 
 // ── Chat Messages ──

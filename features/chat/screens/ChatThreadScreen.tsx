@@ -311,6 +311,8 @@ export function ChatThreadScreen({ conversationId }: Props) {
             setShowContextMenu(false);
             state.onRenameConversation(newTitle);
           }}
+          isDeleting={state.isDeleting}
+          isRenaming={state.isRenaming}
         />
       )}
     </SafeAreaView>

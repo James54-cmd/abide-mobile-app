@@ -57,11 +57,20 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
   
   // Get conversation data for header/management
   const { conversations } = useConversationsRealtime();
-  const conversation = conversations?.find(c => c.id === conversationId) || null;
+  const rawConversation = conversations?.find(c => c.id === conversationId) || null;
   
   // Conversation management hooks
-  const { deleteConversation } = useDeleteConversation();
-  const { renameConversation } = useRenameConversation();
+  const { deleteConversation, deleting } = useDeleteConversation();
+  const { renameConversation, renaming, getOptimisticTitle } = useRenameConversation();
+  
+  // Apply optimistic title updates
+  const conversation = useMemo(() => {
+    if (!rawConversation) return null;
+    return {
+      ...rawConversation,
+      title: getOptimisticTitle(rawConversation.id, rawConversation.title)
+    };
+  }, [rawConversation, getOptimisticTitle]);
 
   const { 
     sendUserMessage,
@@ -241,7 +250,12 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
 
   const onDeleteConversation = useCallback(async () => {
     try {
-      await deleteConversation(conversationId);
+      const result = await deleteConversation(conversationId);
+      if (result.error) {
+        console.error("Failed to delete conversation:", result.error.userMessage);
+        // TODO: Show user-friendly error toast
+        return;
+      }
       // Navigate back to conversation list after deletion
       router.back();
     } catch (error) {
@@ -252,7 +266,11 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
 
   const onRenameConversation = useCallback(async (newTitle: string) => {
     try {
-      await renameConversation(conversationId, newTitle);
+      const result = await renameConversation(conversationId, newTitle);
+      if (result.error) {
+        console.error("Failed to rename conversation:", result.error.userMessage);
+        // TODO: Show user-friendly error toast
+      }
       // Realtime subscription will handle the UI update automatically
     } catch (error) {
       console.error("Failed to rename conversation:", error);
@@ -270,6 +288,8 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
     canSend,
     sending,
     sendError: sendError?.userMessage || null, // Expose user-friendly error message
+    isDeleting: deleting === conversationId, // Check if this conversation is being deleted
+    isRenaming: renaming === conversationId, // Check if this conversation is being renamed
     onBack,
     onInputChange,
     onSend: handleSendMessage, // Use proper async handler name

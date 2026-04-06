@@ -16,7 +16,9 @@ export function ChatListScreenView({
   onOpen, 
   onNewConversation,
   onDeleteConversation,
-  onRenameConversation
+  onRenameConversation,
+  deletingId,
+  renamingId
 }: ChatListScreenProps) {
   return (
     <SafeAreaView className="flex-1 bg-parchment" edges={["top", "left", "right"]}>
@@ -46,6 +48,8 @@ export function ChatListScreenView({
             onDelete={() => onDeleteConversation(item.id)}
             onRename={(newTitle) => onRenameConversation(item.id, newTitle)}
             isFirst={index === 0}
+            isDeleting={deletingId === item.id}
+            isRenaming={renamingId === item.id}
           />
         )}
       />

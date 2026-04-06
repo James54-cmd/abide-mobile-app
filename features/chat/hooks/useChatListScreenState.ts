@@ -6,7 +6,7 @@ import {
   useRenameConversation 
 } from "@/lib/api/chat/hooks";
 import { useRouter } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 /**
  * Feature hook for chat list screen - follows SKILL.md Rule 10 (calls data hooks, not clients)
@@ -19,8 +19,17 @@ export function useChatListScreenState(): ChatListScreenProps {
   // Rule 6: Data hooks in lib/ - feature hooks call them (now with realtime)
   const { conversations, loading: realtimeLoading, error: realtimeError, refetch } = useConversationsRealtime();
   const { createNew, loading: creating } = useCreateConversation();
-  const { deleteConversation, loading: deleting } = useDeleteConversation();
-  const { renameConversation, loading: renaming } = useRenameConversation();
+  const { deleteConversation, deleting } = useDeleteConversation();
+  const { renameConversation, renaming, getOptimisticTitle } = useRenameConversation();
+
+  // Apply optimistic updates to conversation titles
+  const conversationsWithOptimisticUpdates = useMemo(() => {
+    if (!conversations) return [];
+    return conversations.map(conv => ({
+      ...conv,
+      title: getOptimisticTitle(conv.id, conv.title)
+    }));
+  }, [conversations, getOptimisticTitle]);
 
   const onOpen = useCallback(
     (id: string) => {
@@ -41,19 +50,26 @@ export function useChatListScreenState(): ChatListScreenProps {
 
   const onDeleteConversation = useCallback(async (id: string) => {
     try {
-      await deleteConversation(id);
-      // Refetch to update the list after deletion
-      refetch();
+      const result = await deleteConversation(id);
+      if (result.error) {
+        console.error("Failed to delete conversation:", result.error.userMessage);
+        // TODO: Show user-friendly error toast
+      }
+      // Don't need to refetch - realtime subscription will handle the update
     } catch (error) {
       console.error("Failed to delete conversation:", error);
       // TODO: Show user-friendly error toast
     }
-  }, [deleteConversation, refetch]);
+  }, [deleteConversation]);
 
   const onRenameConversation = useCallback(async (id: string, newTitle: string) => {
     try {
-      await renameConversation(id, newTitle);
-      // The realtime subscription should handle the update automatically
+      const result = await renameConversation(id, newTitle);
+      if (result.error) {
+        console.error("Failed to rename conversation:", result.error.userMessage);
+        // TODO: Show user-friendly error toast
+      }
+      // Realtime subscription will handle the update automatically
     } catch (error) {
       console.error("Failed to rename conversation:", error);
       // TODO: Show user-friendly error toast
@@ -61,12 +77,14 @@ export function useChatListScreenState(): ChatListScreenProps {
   }, [renameConversation]);
 
   return { 
-    conversations: conversations ?? [], 
+    conversations: conversationsWithOptimisticUpdates, 
     onOpen, 
     onNewConversation,
     onDeleteConversation,
     onRenameConversation,
     loading: realtimeLoading || creating || deleting || renaming,
+    deletingId: deleting, // Expose which conversation is being deleted
+    renamingId: renaming, // Expose which conversation is being renamed
     error: realtimeError?.userMessage || null,
     refetch
   };

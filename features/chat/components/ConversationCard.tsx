@@ -11,6 +11,8 @@ interface ConversationCardProps {
   onDelete?: () => void;
   onRename?: (newTitle: string) => void;
   isFirst?: boolean;
+  isDeleting?: boolean;
+  isRenaming?: boolean;
 }
 
 export function ConversationCard({
@@ -19,12 +21,17 @@ export function ConversationCard({
   onDelete,
   onRename,
   isFirst = false,
+  isDeleting = false,
+  isRenaming = false,
 }: ConversationCardProps) {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const cardRef = useRef<View>(null);
 
   const handleLongPress = () => {
+    // Don't show menu if operation in progress
+    if (isDeleting || isRenaming) return;
+    
     // Measure the card position for dropdown placement
     cardRef.current?.measure((x, y, width, height, pageX, pageY) => {
       setMenuAnchor({ 
@@ -135,6 +142,8 @@ export function ConversationCard({
       onClose={() => setShowContextMenu(false)}
       onDelete={handleDelete}
       onRename={handleRename}
+      isDeleting={isDeleting}
+      isRenaming={isRenaming}
     />
   </>
   );

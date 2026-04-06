@@ -18,6 +18,8 @@ interface Props {
   onClose: () => void;
   onDelete: () => void;
   onRename: (newTitle: string) => void;
+  isDeleting?: boolean;
+  isRenaming?: boolean;
 }
 
 /**
@@ -31,11 +33,20 @@ export function ConversationContextMenu({
   anchor,
   onClose, 
   onDelete, 
-  onRename
+  onRename,
+  isDeleting = false,
+  isRenaming = false
 }: Props) {
   const [showRenameModal, setShowRenameModal] = useState(false);
 
+  const handleRename = () => {
+    if (isDeleting || isRenaming) return; // Prevent action during operations
+    onClose();
+    setShowRenameModal(true);
+  };
+
   const handleDelete = () => {
+    if (isDeleting || isRenaming) return; // Prevent action during operations
     Alert.alert(
       "Delete Conversation",
       `Are you sure you want to delete "${conversation.title}"? This action cannot be undone.`,
@@ -51,11 +62,6 @@ export function ConversationContextMenu({
         },
       ]
     );
-  };
-
-  const handleRename = () => {
-    onClose();
-    setShowRenameModal(true);
   };
 
   const handleRenameSubmit = (newTitle: string) => {
@@ -75,22 +81,49 @@ export function ConversationContextMenu({
         <View style={styles.menuContent}>
           {/* Rename Option */}
           <Pressable
-            style={styles.menuItem}
+            style={[
+              styles.menuItem, 
+              (isDeleting || isRenaming) && styles.menuItemDisabled
+            ]}
             onPress={handleRename}
+            disabled={isDeleting || isRenaming}
           >
-            <Feather name="edit-2" size={18} color="#8C7B6A" />
-            <Text style={styles.menuText}>Rename</Text>
+            <Feather 
+              name={isRenaming ? "loader" : "edit-2"} 
+              size={18} 
+              color={(isDeleting || isRenaming) ? "#8C7B6A" : "#8C7B6A"} 
+            />
+            <Text style={[
+              styles.menuText,
+              (isDeleting || isRenaming) && styles.menuTextDisabled
+            ]}>
+              {isRenaming ? "Renaming..." : "Rename"}
+            </Text>
           </Pressable>
 
           <View style={styles.separator} />
 
           {/* Delete Option */}
           <Pressable
-            style={styles.menuItem}
+            style={[
+              styles.menuItem,
+              (isDeleting || isRenaming) && styles.menuItemDisabled
+            ]}
             onPress={handleDelete}
+            disabled={isDeleting || isRenaming}
           >
-            <Feather name="trash-2" size={18} color="#DC2626" />
-            <Text style={[styles.menuText, styles.deleteText]}>Delete</Text>
+            <Feather 
+              name={isDeleting ? "loader" : "trash-2"} 
+              size={18} 
+              color={isDeleting ? "#8C7B6A" : "#DC2626"} 
+            />
+            <Text style={[
+              styles.menuText, 
+              styles.deleteText,
+              (isDeleting || isRenaming) && styles.menuTextDisabled
+            ]}>
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Text>
           </Pressable>
         </View>
       </Dropdown>
@@ -101,6 +134,7 @@ export function ConversationContextMenu({
         currentTitle={conversation.title}
         onClose={() => setShowRenameModal(false)}
         onSave={handleRenameSubmit}
+        isRenaming={isRenaming}
       />
     </>
   );
@@ -117,11 +151,17 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     minHeight: 48,
   },
+  menuItemDisabled: {
+    opacity: 0.6,
+  },
   menuText: {
     fontSize: 16,
     color: "#433B32", // ink color
     marginLeft: 12,
     flex: 1,
+  },
+  menuTextDisabled: {
+    color: "#8C7B6A", // muted color
   },
   deleteText: {
     color: "#DC2626",

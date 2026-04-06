@@ -63,21 +63,25 @@ export function Dropdown({
     <Modal
       transparent
       visible={visible}
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}
+      statusBarTranslucent={false}
+      hardwareAccelerated={true}
+      presentationStyle="overFullScreen"
     >
       {/* Overlay background */}
-      <Pressable 
-        style={styles.overlay} 
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Close menu"
-      >
-        {/* Dropdown content */}
+      <View style={styles.overlay}>
+        <Pressable 
+          style={StyleSheet.absoluteFillObject}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close menu"
+        />
+        {/* Dropdown content - positioned absolutely */}
         <View style={[styles.dropdown, getDropdownStyle()]}>
           {children}
         </View>
-      </Pressable>
+      </View>
     </Modal>
   );
 }

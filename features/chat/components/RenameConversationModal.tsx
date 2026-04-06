@@ -66,19 +66,36 @@ export function RenameConversationModal({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
+      statusBarTranslucent={false}
+      hardwareAccelerated={true}
+      presentationStyle="overFullScreen"
     >
-      <KeyboardAvoidingView 
-        style={styles.overlay} 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <Pressable style={styles.overlay} onPress={handleCancel}>
-          <Pressable style={styles.modal} onPress={(e) => e.stopPropagation()}>
+      <View style={styles.overlay}>
+        <Pressable 
+          style={StyleSheet.absoluteFillObject}
+          onPress={handleCancel}
+          accessibilityRole="button"
+          accessibilityLabel="Close modal"
+        />
+        
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalContainer}
+        >
+          <View style={styles.modal}>
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.title}>Rename Conversation</Text>
-              <Pressable onPress={handleCancel} style={styles.closeButton}>
+              <Pressable 
+                onPress={handleCancel} 
+                style={[
+                  styles.closeButton,
+                  isRenaming && styles.closeButtonDisabled
+                ]}
+                disabled={isRenaming}
+              >
                 <Feather name="x" size={20} color={colors.muted} />
               </Pressable>
             </View>
@@ -133,9 +150,9 @@ export function RenameConversationModal({
                 )}
               </Pressable>
             </View>
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -146,6 +163,9 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContainer: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
@@ -178,6 +198,9 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
+  },
+  closeButtonDisabled: {
+    opacity: 0.5,
   },
   inputSection: {
     paddingHorizontal: 20,
