@@ -6,11 +6,14 @@ export interface ChatListScreenProps {
   error: string | null;
   onOpen: (id: string) => void;
   onNewConversation: () => void;
+  onDeleteConversation: (id: string) => void;
+  onRenameConversation: (id: string, newTitle: string) => void;
   refetch: () => void;
 }
 
 export interface ChatThreadScreenProps {
   conversationId: string;
+  conversation: Conversation | null;
   messages: ChatMessage[];
   loading: boolean;
   error: string | null;
@@ -24,6 +27,8 @@ export interface ChatThreadScreenProps {
   onInputChange: (text: string) => void;
   onSend: () => void;
   onScrollToBottom: () => void;
+  onDeleteConversation: () => void;
+  onRenameConversation: (newTitle: string) => void;
   refetch: () => void;
 }
 

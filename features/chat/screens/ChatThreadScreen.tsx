@@ -1,4 +1,5 @@
 import { ChatBubble } from "@/features/chat/components/ChatBubble";
+import { ConversationContextMenu } from "@/features/chat/components/ConversationContextMenu";
 import { useChatThreadScreenState } from "@/features/chat/hooks/useChatThreadScreenState";
 import { getMessageKey } from "@/features/chat/utils/messageHelpers";
 import type { ChatMessage } from "@/types";
@@ -14,7 +15,7 @@ import {
   View,
   type ListRenderItem,
 } from "react-native";
-import { useMemo, useCallback, useRef, useEffect } from "react";
+import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 
 interface Props {
   conversationId: string;
@@ -30,11 +31,22 @@ export function ChatThreadScreen({ conversationId }: Props) {
   const state = useChatThreadScreenState(conversationId);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
   
+  // Local state for context menu
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const menuButtonRef = useRef<View>(null);
+  
   // Track previous message count for smart auto-scroll
   const previousMessageCount = useRef(state.messages.length);
 
-  // Derive title from first user message if available
+  // Derive title from conversation data or fallback to first message
   const title = useMemo(() => {
+    // Use conversation title if available
+    if (state.conversation?.title) {
+      return state.conversation.title;
+    }
+    
+    // Fallback to deriving from first user message
     if (state.messages.length === 0) return "New conversation";
     
     const firstUserMessage = state.messages.find(msg => msg.role === "user");
@@ -46,7 +58,7 @@ export function ChatThreadScreen({ conversationId }: Props) {
     }
     
     return "Conversation";
-  }, [state.messages]);
+  }, [state.conversation?.title, state.messages]);
 
   // Memoized render function to prevent unnecessary rerenders
   const renderMessage: ListRenderItem<ChatMessage> = useCallback(({ item: message }) => {
@@ -124,9 +136,22 @@ export function ChatThreadScreen({ conversationId }: Props) {
         </View>
 
         {/* Menu button */}
-        <Pressable className="h-9 w-9 items-center justify-center rounded-full">
-          <Feather name="more-horizontal" size={18} color="rgba(140, 123, 106, 0.6)" />
-        </Pressable>
+        <View ref={menuButtonRef}>
+          <Pressable 
+            className="h-9 w-9 items-center justify-center rounded-full"
+            onPress={() => {
+              // Measure button position for dropdown placement
+              menuButtonRef.current?.measure((x, y, width, height, pageX, pageY) => {
+                setMenuAnchor({ x: pageX, y: pageY, width, height });
+                setShowContextMenu(true);
+              });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Conversation options"
+          >
+            <Feather name="more-horizontal" size={18} color="rgba(140, 123, 106, 0.6)" />
+          </Pressable>
+        </View>
       </View>
 
       <KeyboardAvoidingView 
@@ -270,6 +295,24 @@ export function ChatThreadScreen({ conversationId }: Props) {
           )}
         </View>
       </KeyboardAvoidingView>
+      
+      {/* Context Menu for conversation management */}
+      {state.conversation && (
+        <ConversationContextMenu
+          visible={showContextMenu}
+          conversation={state.conversation}
+          anchor={menuAnchor}
+          onClose={() => setShowContextMenu(false)}
+          onDelete={() => {
+            setShowContextMenu(false);
+            state.onDeleteConversation();
+          }}
+          onRename={(newTitle) => {
+            setShowContextMenu(false);
+            state.onRenameConversation(newTitle);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

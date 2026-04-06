@@ -11,7 +11,13 @@ export function ChatListScreen() {
   return <ChatListScreenView {...useChatListScreenState()} />;
 }
 
-export function ChatListScreenView({ conversations, onOpen, onNewConversation }: ChatListScreenProps) {
+export function ChatListScreenView({ 
+  conversations, 
+  onOpen, 
+  onNewConversation,
+  onDeleteConversation,
+  onRenameConversation
+}: ChatListScreenProps) {
   return (
     <SafeAreaView className="flex-1 bg-parchment" edges={["top", "left", "right"]}>
       <ScreenHeader
@@ -37,6 +43,8 @@ export function ChatListScreenView({ conversations, onOpen, onNewConversation }:
           <ConversationCard 
             conversation={item} 
             onPress={() => onOpen(item.id)} 
+            onDelete={() => onDeleteConversation(item.id)}
+            onRename={(newTitle) => onRenameConversation(item.id, newTitle)}
             isFirst={index === 0}
           />
         )}

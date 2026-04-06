@@ -6,6 +6,7 @@ import {
   sendChatMessage 
 } from "@/lib/api/conversations/requests";
 import { postAiEncouragement } from "@/lib/api/chat/requests";
+import { deleteConversation, updateConversationTitle } from "@/lib/supabase/chat/mutations";
 import type { ChatMessage, Conversation } from "@/types";
 import { 
   createChatError, 
@@ -273,6 +274,83 @@ export function useCreateConversation() {
   }, []);
   
   return { createNew, loading };
+}
+
+// ── Conversation Mutations ──
+
+/**
+ * Hook for deleting conversations - follows SKILL.md Rule 6 (data hooks in lib/)
+ */
+export function useDeleteConversation() {
+  const [deleting, setDeleting] = useState<string | null>(null); // Track which conversation is being deleted
+  const [error, setError] = useState<ChatError | null>(null);
+
+  const deleteConv = useCallback(async (conversationId: string): Promise<{ success?: boolean; error?: ChatError }> => {
+    setDeleting(conversationId);
+    setError(null);
+    
+    try {
+      await deleteConversation(conversationId);
+      return { success: true };
+    } catch (err) {
+      const chatError = normalizeChatError(err);
+      setError(chatError);
+      return { error: chatError };
+    } finally {
+      setDeleting(null);
+    }
+  }, []);
+
+  return { deleteConversation: deleteConv, deleting, error };
+}
+
+/**
+ * Hook for renaming conversations - follows SKILL.md Rule 6 (data hooks in lib/)
+ */
+export function useRenameConversation() {
+  const [renaming, setRenaming] = useState<string | null>(null); // Track which conversation is being renamed
+  const [error, setError] = useState<ChatError | null>(null);
+
+  const rename = useCallback(async (
+    conversationId: string, 
+    newTitle: string
+  ): Promise<{ conversation?: Conversation; error?: ChatError }> => {
+    const trimmedTitle = newTitle.trim();
+    
+    if (!trimmedTitle || trimmedTitle.length < 1) {
+      const validationError = createChatError(
+        ChatErrorCodes.MESSAGE_TOO_LONG, // Reuse for validation
+        "Title cannot be empty"
+      );
+      setError(validationError);
+      return { error: validationError };
+    }
+
+    if (trimmedTitle.length > 100) {
+      const validationError = createChatError(
+        ChatErrorCodes.MESSAGE_TOO_LONG,
+        "Title must be 100 characters or less"
+      );
+      setError(validationError);
+      return { error: validationError };
+    }
+
+    setRenaming(conversationId);
+    setError(null);
+    
+    try {
+      const updatedConversation = await updateConversationTitle(conversationId, trimmedTitle);
+      return { conversation: updatedConversation };
+    } catch (err) {
+      const chatError = normalizeChatError(err);
+      setError(chatError);
+      return { error: chatError };
+    } finally {
+      setRenaming(null);
+    }
+  }, []);
+
+  return { renameConversation: rename, renaming, error };
 }
 
 // ── Chat Messages ──

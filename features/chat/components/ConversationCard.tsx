@@ -2,29 +2,65 @@ import { Pressable, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import type { Conversation } from "@/types";
 import { formatConversationTime, formatMessageCount } from "@/features/chat/utils/formatting";
+import { useState, useRef } from "react";
+import { ConversationContextMenu } from "./ConversationContextMenu";
 
 interface ConversationCardProps {
   conversation: Conversation;
   onPress: () => void;
+  onDelete?: () => void;
+  onRename?: (newTitle: string) => void;
   isFirst?: boolean;
 }
 
 export function ConversationCard({
   conversation,
   onPress,
+  onDelete,
+  onRename,
   isFirst = false,
 }: ConversationCardProps) {
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const cardRef = useRef<View>(null);
+
+  const handleLongPress = () => {
+    // Measure the card position for dropdown placement
+    cardRef.current?.measure((x, y, width, height, pageX, pageY) => {
+      setMenuAnchor({ 
+        x: pageX + width - 50, // Position near the right side 
+        y: pageY, 
+        width: 50, 
+        height 
+      });
+      setShowContextMenu(true);
+    });
+  };
+
+  const handleDelete = () => {
+    setShowContextMenu(false);
+    onDelete?.();
+  };
+
+  const handleRename = (newTitle: string) => {
+    setShowContextMenu(false);
+    onRename?.(newTitle);
+  };
+
   const hasUnread = (conversation.unread_count ?? 0) > 0;
 
   return (
-    <Pressable
-      className={`flex-row items-stretch overflow-hidden rounded-2xl border bg-cream active:opacity-90 ${
-        hasUnread ? "border-gold/25" : "border-gold/10"
-      } ${isFirst ? "" : "mt-3"}`}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`Open conversation: ${conversation.title}`}
-    >
+    <>
+      <View ref={cardRef}>
+        <Pressable
+          className={`flex-row items-stretch overflow-hidden rounded-2xl border bg-cream active:opacity-90 ${
+            hasUnread ? "border-gold/25" : "border-gold/10"
+          } ${isFirst ? "" : "mt-3"}`}
+          onPress={onPress}
+          onLongPress={handleLongPress}
+          accessibilityRole="button"
+          accessibilityLabel={`Open conversation: ${conversation.title}`}
+        >
       {/* Accent bar — dimmed when read */}
       <View className={`w-[3px] ${hasUnread ? "bg-gold" : "bg-gold/30"}`} />
 
@@ -89,5 +125,17 @@ export function ConversationCard({
         />
       </View>
     </Pressable>
+    </View>
+
+    {/* Context Menu */}
+    <ConversationContextMenu
+      visible={showContextMenu}
+      conversation={conversation}
+      anchor={menuAnchor}
+      onClose={() => setShowContextMenu(false)}
+      onDelete={handleDelete}
+      onRename={handleRename}
+    />
+  </>
   );
 }

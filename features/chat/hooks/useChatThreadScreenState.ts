@@ -1,6 +1,12 @@
 import type { ChatMessage } from "@/types";
 import type { ChatThreadScreenProps } from "@/features/chat/types";
-import { useConversationMessagesRealtime, useSendMessage } from "@/lib/api/chat/hooks";
+import { 
+  useConversationMessagesRealtime, 
+  useSendMessage, 
+  useConversationsRealtime,
+  useDeleteConversation,
+  useRenameConversation
+} from "@/lib/api/chat/hooks";
 import { useAuthStore } from "@/store/useAuthStore";
 import { triggerSend } from "@/lib/native/haptics";
 import { useRouter } from "expo-router";
@@ -48,6 +54,14 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
     errorMessage, 
     refetch 
   } = useConversationMessagesRealtime(isValidConversationId ? conversationId : '');
+  
+  // Get conversation data for header/management
+  const { conversations } = useConversationsRealtime();
+  const conversation = conversations?.find(c => c.id === conversationId) || null;
+  
+  // Conversation management hooks
+  const { deleteConversation } = useDeleteConversation();
+  const { renameConversation } = useRenameConversation();
 
   const { 
     sendUserMessage,
@@ -225,8 +239,30 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
     // Handler for FlatList onContentSizeChange - implementation handled in component
   }, []);
 
+  const onDeleteConversation = useCallback(async () => {
+    try {
+      await deleteConversation(conversationId);
+      // Navigate back to conversation list after deletion
+      router.back();
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+      // TODO: Show user-friendly error toast
+    }
+  }, [deleteConversation, conversationId, router]);
+
+  const onRenameConversation = useCallback(async (newTitle: string) => {
+    try {
+      await renameConversation(conversationId, newTitle);
+      // Realtime subscription will handle the UI update automatically
+    } catch (error) {
+      console.error("Failed to rename conversation:", error);
+      // TODO: Show user-friendly error toast  
+    }
+  }, [renameConversation, conversationId]);
+
   return {
     conversationId,
+    conversation,
     messages,
     loading: loadState === "loading",
     error: isValidConversationId ? errorMessage : "Invalid conversation ID",
@@ -238,6 +274,8 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
     onInputChange,
     onSend: handleSendMessage, // Use proper async handler name
     onScrollToBottom,
+    onDeleteConversation,
+    onRenameConversation,
     refetch,
   };
 }
