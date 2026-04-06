@@ -1,0 +1,31 @@
+# Supabase Configuration
+# Reference: https://supabase.com/docs/guides/cli/config
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "auth", "realtime", "storage"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_manual_linking = false
+
+[db]
+# Port to use for the local database URL
+port = 54322
+# The database major version to use
+# This has to be the same as your remote database's major version
+# Run `SHOW server_version;` on the remote database to check
+major_version = 15
+
+[functions.ai-chat]
+verify_jwt = false
+
+[studio]
+enabled = true
+port = 54323

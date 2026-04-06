@@ -4,8 +4,8 @@ import { corsHeaders } from "../_shared/cors.ts"
 /**
  * Enhanced AI Chat Edge Function with Biblical Encouragement System
  * 
- * Provides structured encouragement responses with optional Bible character stories
- * and context-aware biblical guidance following the Abide companion model.
+ * Provides structured encouragement responses with optional Bible character stories,
+ * context-aware biblical guidance, and smart conversation title generation.
  */
 
 type ChatHistoryRow = {
@@ -26,6 +26,130 @@ type EncouragementResponse = {
   verses: Array<{ reference: string; text: string }>;
   closing: string;
 };
+
+// Smart title generation system
+type TitleStatus = 'pending' | 'generated' | 'locked' | 'user_edited';
+
+function shouldRefineTitle(title: string): boolean {
+  const weakTitles = new Set([
+    "Check This",
+    "Need Help", 
+    "Question",
+    "Hello",
+    "Hi",
+    "Problem",
+    "New Conversation",
+    "Untitled",
+    "Help Me",
+    "Can You",
+    "Please Help"
+  ]);
+
+  const normalizedTitle = title.trim();
+  return weakTitles.has(normalizedTitle) || normalizedTitle.length < 10;
+}
+
+function generateTitleFromMessage(message: string): string {
+  const text = normalizeMessage(message);
+
+  // Intent-based pattern matching for common topics
+  const patterns = [
+    {
+      test: /supabase|jwt|401|403|auth|authentication|login|signin/i,
+      title: "Fix Supabase Auth Error"
+    },
+    {
+      test: /react[\s-]?native|expo|mobile app|ios|android/i,
+      title: "React Native App Issue"
+    },
+    {
+      test: /openai|gpt|ai|chatgpt|artificial intelligence/i,
+      title: "OpenAI Integration Help"
+    },
+    {
+      test: /laravel|php|employee|notification|backend/i,
+      title: "Laravel Backend Issue"
+    },
+    {
+      test: /bible|scripture|verse|faith|prayer|spiritual/i,
+      title: "Biblical Guidance"
+    },
+    {
+      test: /database|sql|postgres|mysql|query/i,
+      title: "Database Query Help"
+    },
+    {
+      test: /deploy|deployment|production|server|hosting/i,
+      title: "Deployment Issue"
+    },
+    {
+      test: /error|bug|fix|broken|not working/i,
+      title: "Fix Code Error"
+    },
+    {
+      test: /setup|install|configuration|config/i,
+      title: "Setup Configuration"
+    },
+    {
+      test: /design|ui|ux|frontend|styling|css/i,
+      title: "UI Design Help"
+    }
+  ];
+
+  // Try pattern matching first
+  for (const rule of patterns) {
+    if (rule.test.test(text)) {
+      return rule.title;
+    }
+  }
+
+  // Fallback to semantic extraction
+  return fallbackSemanticTitle(text);
+}
+
+function fallbackSemanticTitle(text: string): string {
+  // Clean and normalize the text
+  const cleaned = text
+    .replace(/[^\w\s-]/g, " ") // Replace special chars with spaces
+    .replace(/\s+/g, " ") // Normalize whitespace
+    .trim();
+
+  const words = cleaned.split(" ").filter(Boolean);
+
+  // Remove common stop words
+  const stopWords = new Set([
+    "i", "am", "is", "are", "the", "a", "an", "and", "or", "but",
+    "can", "you", "please", "help", "with", "this", "that", "my", 
+    "to", "for", "in", "on", "of", "at", "by", "from", "me", "we",
+    "have", "has", "had", "do", "does", "did", "will", "would",
+    "could", "should", "may", "might", "must", "shall", "using",
+    "get", "getting", "make", "making", "want", "need", "trying",
+    "trying", "how", "what", "when", "where", "why", "who"
+  ]);
+
+  // Extract meaningful words
+  const meaningful = words.filter(word => 
+    word.length > 2 && !stopWords.has(word.toLowerCase())
+  );
+
+  // Take first 4-6 meaningful words
+  const titleWords = meaningful.slice(0, Math.min(6, meaningful.length));
+  
+  if (titleWords.length === 0) {
+    return "General Question";
+  }
+
+  const title = titleWords.join(" ");
+  return toTitleCase(title);
+}
+
+function normalizeMessage(message: string): string {
+  return message.trim().replace(/\s+/g, " ");
+}
+
+function toTitleCase(input: string): string {
+  return input.replace(/\b\w/g, c => c.toUpperCase());
+}
 
 // Enhanced response system with contextual awareness
 type ResponseTier = 'casual' | 'light' | 'deep' | 'crisis';
@@ -350,13 +474,13 @@ Deno.serve(async (req) => {
       throw new Error("Missing required environment variables")
     }
 
-    // Get JWT from Authorization header
+    // Use Supabase's built-in authentication instead of manual JWT validation
     const authHeader = req.headers.get("Authorization")
-    if (!authHeader?.startsWith("Bearer ")) {
+    if (!authHeader) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Missing or invalid Authorization header",
+          error: "Missing Authorization header",
         }),
         {
           status: 401,
@@ -365,34 +489,20 @@ Deno.serve(async (req) => {
       )
     }
 
-    const jwt = authHeader.replace("Bearer ", "")
-    
-    // Manual JWT validation
-    let user;
-    try {
-      const payload = JSON.parse(atob(jwt.split('.')[1]))
-      
-      // Basic JWT validation  
-      const now = Date.now() / 1000
-      if (payload.exp < now) {
-        throw new Error("JWT expired")
-      }
-      
-      if (payload.iss !== `${supabaseUrl}/auth/v1`) {
-        throw new Error("Invalid JWT issuer")
-      }
-      
-      if (payload.aud !== "authenticated") {
-        throw new Error("Invalid JWT audience")
-      }
-      
-      user = {
-        id: payload.sub,
-        email: payload.email,
-        role: payload.role
-      }
-      
-    } catch (error) {
+    // Create user-authenticated Supabase client
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    })
+
+    // Get user from authenticated request  
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser()
+
+    if (authError || !user) {
+      console.error("Authentication failed:", authError)
       return new Response(
         JSON.stringify({
           success: false,
@@ -481,7 +591,72 @@ Deno.serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    if (historyError) throw historyError
+    // Store user message first
+    const { data: userMessage, error: userMessageError } = await serviceClient
+      .from('chat_messages')
+      .insert({
+        conversation_id: conversationId,
+        role: 'user',
+        content: message,
+        user_id: user.id,
+      })
+      .select('id')
+      .single();
+
+    if (userMessageError) {
+      console.error('Failed to store user message:', userMessageError);
+      throw new Error('Failed to store message');
+    }
+
+    // Check if this is the first user message and generate title if needed
+    const { count: userMessageCount } = await serviceClient
+      .from('chat_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('conversation_id', conversationId)
+      .eq('role', 'user')
+
+    console.log('User message count for conversation:', userMessageCount)
+    
+    // Get current conversation to check title status
+    const { data: currentConversation } = await serviceClient
+      .from('chat_conversations')
+      .select('title, title_status, message_count')
+      .eq('id', conversationId)
+      .single();
+
+    let shouldGenerateTitle = false;
+    
+    if (currentConversation) {
+      // Generate title if:
+      // 1. First user message and status is pending
+      // 2. Second user message and current title is weak
+      if ((userMessageCount || 0) === 1 && currentConversation.title_status === 'pending') {
+        shouldGenerateTitle = true;
+      } else if ((userMessageCount || 0) === 2 && shouldRefineTitle(currentConversation.title)) {
+        shouldGenerateTitle = true;
+      }
+
+      // Update message count
+      await serviceClient
+        .from('chat_conversations')
+        .update({ message_count: userMessageCount || 0 })
+        .eq('id', conversationId);
+
+      // Generate and update title if needed
+      if (shouldGenerateTitle) {
+        const newTitle = generateTitleFromMessage(message);
+        console.log(`Generating title for conversation ${conversationId}: "${newTitle}"`);
+        
+        await serviceClient
+          .from('chat_conversations')
+          .update({ 
+            title: newTitle, 
+            title_status: 'generated',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', conversationId);
+      }
+    }
 
     // Build conversation context
     const historyMessagesRaw = ((historyRows ?? []) as ChatHistoryRow[])
@@ -695,7 +870,7 @@ Deno.serve(async (req) => {
       console.error('Conversation update error:', conversationUpdateError)
     }
 
-    // Return successful response
+    // Return successful response with conversation title update if applicable
     return new Response(
       JSON.stringify({
         success: true,
@@ -707,7 +882,8 @@ Deno.serve(async (req) => {
           encouragement: encouragementData,
           created_at: aiMessage?.created_at || new Date().toISOString(),
           user_id: user.id
-        }
+        },
+        titleUpdated: shouldGenerateTitle
       }),
       {
         status: 200,

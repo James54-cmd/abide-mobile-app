@@ -47,11 +47,12 @@ export interface Conversation {
   id: string;
   user_id: string;
   title: string;
+  title_status: 'pending' | 'generated' | 'locked' | 'user_edited';
+  message_count: number;
   created_at: string;
   updated_at: string;
   // Computed/derived fields for UI
   last_message?: string;
-  message_count?: number;
   unread_count?: number;
 }
 

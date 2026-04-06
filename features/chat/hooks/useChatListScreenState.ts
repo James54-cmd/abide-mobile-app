@@ -23,7 +23,7 @@ export function useChatListScreenState(): ChatListScreenProps {
 
   const onNewConversation = useCallback(async () => {
     try {
-      const newConversation = await createNew("New conversation");
+      const newConversation = await createNew(); // No title needed - defaults to "New Conversation"
       router.push(`/(tabs)/chat/${newConversation.id}`);
     } catch (error) {
       console.error("Failed to create conversation:", error);
