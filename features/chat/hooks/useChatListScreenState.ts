@@ -1,45 +1,18 @@
 import type { ChatListScreenProps } from "@/features/chat/types";
-import type { Conversation } from "@/types";
+import { useGetConversations, useCreateConversation } from "@/lib/api/chat/hooks";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 
-const MOCK_CONVERSATIONS: Conversation[] = [
-  {
-    id: "c1",
-    title: "Anxious heart",
-    last_message: "He is near to the brokenhearted.",
-    updated_at: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-    message_count: 2,
-    unread_count: 0,
-    user_id: "user1",
-  },
-  {
-    id: "c2",
-    title: "Evening prayer",
-    last_message: "Rest in His faithfulness tonight.",
-    updated_at: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-    message_count: 1,
-    unread_count: 1,
-    user_id: "user1",
-  },
-  {
-    id: "c3",
-    title: "Purpose today",
-    last_message: "Walk in gentle obedience.",
-    updated_at: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-    message_count: 0,
-    unread_count: 0,
-    user_id: "user1",
-  },
-];
-
+/**
+ * Feature hook for chat list screen - follows SKILL.md Rule 10 (calls data hooks, not clients)
+ * Composes data hooks and provides screen-specific logic and handlers.
+ */
 export function useChatListScreenState(): ChatListScreenProps {
   const router = useRouter();
-
-  const conversations = useMemo(() => MOCK_CONVERSATIONS, []);
+  
+  // Rule 6: Data hooks in lib/ - feature hooks call them
+  const { data: conversations, loadState, errorMessage, refetch } = useGetConversations();
+  const { createNew, loading: creating } = useCreateConversation();
 
   const onOpen = useCallback(
     (id: string) => {
@@ -48,11 +21,22 @@ export function useChatListScreenState(): ChatListScreenProps {
     [router]
   );
 
-  const onNewConversation = useCallback(() => {
-    // Generate new conversation ID
-    const newId = `c${Date.now()}`;
-    router.push(`/(tabs)/chat/${newId}`);
-  }, [router]);
+  const onNewConversation = useCallback(async () => {
+    try {
+      const newConversation = await createNew("New conversation");
+      router.push(`/(tabs)/chat/${newConversation.id}`);
+    } catch (error) {
+      console.error("Failed to create conversation:", error);
+      // TODO: Show user-friendly error toast
+    }
+  }, [createNew, router]);
 
-  return { conversations, onOpen, onNewConversation };
+  return { 
+    conversations: conversations ?? [], 
+    onOpen, 
+    onNewConversation,
+    loading: loadState === "loading" || creating,
+    error: errorMessage,
+    refetch
+  };
 }

@@ -7,13 +7,31 @@ export interface Verse {
   relevance?: string;
 }
 
-export interface EncouragementResponse {
+export interface BibleCharacter {
+  name: string;
+  story: string;
+  connection: string;
+}
+
+// Full encouragement format (deep responses)
+export interface FullEncouragementResponse {
   intro: string;
+  character?: BibleCharacter;
   verses: Verse[];
   closing: string;
   rebuke?: string | null;
   practicalStep?: string;
 }
+
+// Light encouragement format (light responses)
+export interface LightEncouragementResponse {
+  intro: string;
+  verses: Verse[]; // Contains exactly one verse for light encouragement
+  closing: string;
+}
+
+// Union type for all encouragement formats
+export type EncouragementResponse = FullEncouragementResponse | LightEncouragementResponse;
 
 export interface ChatMessage {
   id: string | number;
@@ -21,7 +39,7 @@ export interface ChatMessage {
   user_id: string;
   role: "user" | "assistant";
   content: string;
-  encouragement?: EncouragementResponse | null;
+  encouragement?: EncouragementResponse | string | null; // Casual=null, Light=LightEncouragementResponse, Deep=FullEncouragementResponse, Legacy=string
   created_at: string;
 }
 
