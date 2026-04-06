@@ -13,7 +13,8 @@ export interface BibleCharacter {
   connection: string;
 }
 
-export interface EncouragementResponse {
+// Full encouragement format (deep responses)
+export interface FullEncouragementResponse {
   intro: string;
   character?: BibleCharacter;
   verses: Verse[];
@@ -22,13 +23,23 @@ export interface EncouragementResponse {
   practicalStep?: string;
 }
 
+// Light encouragement format (light responses)
+export interface LightEncouragementResponse {
+  intro: string;
+  verses: Verse[]; // Contains exactly one verse for light encouragement
+  closing: string;
+}
+
+// Union type for all encouragement formats
+export type EncouragementResponse = FullEncouragementResponse | LightEncouragementResponse;
+
 export interface ChatMessage {
   id: string | number;
   conversation_id: string;
   user_id: string;
   role: "user" | "assistant";
   content: string;
-  encouragement?: EncouragementResponse | null;
+  encouragement?: EncouragementResponse | string | null; // Casual=null, Light=LightEncouragementResponse, Deep=FullEncouragementResponse, Legacy=string
   created_at: string;
 }
 

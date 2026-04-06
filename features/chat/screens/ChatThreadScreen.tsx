@@ -1,6 +1,5 @@
 import { ChatBubble } from "@/features/chat/components/ChatBubble";
-import { PracticalStepChip } from "@/features/chat/components/PracticalStepChip";
-import { RebukeBlock } from "@/features/chat/components/RebukeBlock";
+import { TypingIndicator } from "@/features/chat/components/TypingIndicator";
 import { useChatThreadScreenState } from "@/features/chat/hooks/useChatThreadScreenState";
 import type { ChatMessage } from "@/types";
 import { Feather } from "@expo/vector-icons";
@@ -45,24 +44,9 @@ export function ChatThreadScreen({ conversationId }: Props) {
   }, [state.messages]);
 
   const renderMessage: ListRenderItem<ChatMessage> = ({ item: message }) => {
-    const isUser = message.role === "user";
-    
     return (
       <View className="px-4 py-1">
         <ChatBubble message={message} />
-        
-        {/* Assistant message enhancements */}
-        {!isUser && message.encouragement && (
-          <View className="ml-1 mt-3 max-w-[82%]">
-            {message.encouragement.practicalStep && (
-              <PracticalStepChip text={message.encouragement.practicalStep} />
-            )}
-            
-            {message.encouragement.rebuke && (
-              <RebukeBlock text={message.encouragement.rebuke} />
-            )}
-          </View>
-        )}
       </View>
     );
   };
@@ -116,15 +100,38 @@ export function ChatThreadScreen({ conversationId }: Props) {
         {/* Message list or empty state */}
         {state.messages.length === 0 ? (
           <View style={{ flex: 1 }} className="items-center justify-center px-8">
-            <View className="mb-4 h-16 w-16 items-center justify-center rounded-full bg-gold/10">
-              <Feather name="message-circle" size={28} color="#C9973A" />
+            <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-gradient-to-b from-gold/20 to-gold/10">
+              <Feather name="heart" size={32} color="#C9973A" />
             </View>
-            <Text className="mb-2 text-center font-serif text-xl text-ink">
-              Ready to Listen
+            <Text className="mb-3 text-center font-serif text-2xl text-ink">
+              Welcome to Abide
             </Text>
-            <Text className="text-center font-sans text-base leading-6 text-muted">
-              Share what's on your heart. I'm here to offer biblical guidance and encouragement.
+            <Text className="mb-6 text-center font-sans text-base leading-6 text-muted">
+              I'm here to offer biblical guidance, share encouraging Scripture, and remind you of God's love. 
+              Feel comfortable sharing your heart – struggles, questions, or celebrations.
             </Text>
+            
+            <View className="w-full max-w-sm">
+              <View className="mb-3 flex-row items-start rounded-lg bg-cream p-3">
+                <Feather name="book-open" size={16} color="#C9973A" />
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text className="font-sans-medium text-sm text-ink">Scripture & Stories</Text>
+                  <Text className="font-sans text-xs leading-4 text-muted">
+                    I'll share relevant Bible verses and stories of biblical characters who faced similar situations.
+                  </Text>
+                </View>
+              </View>
+              
+              <View className="flex-row items-start rounded-lg bg-teal/8 p-3">
+                <Feather name="users" size={16} color="#58A6AF" />
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text className="font-sans-medium text-sm text-ink">Community Connection</Text>
+                  <Text className="font-sans text-xs leading-4 text-muted">
+                    I'll encourage you to connect with your pastor or church community for prayer and support.
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
         ) : (
           <FlatList
@@ -135,20 +142,27 @@ export function ChatThreadScreen({ conversationId }: Props) {
             contentContainerStyle={{ paddingVertical: 8 }}
             onContentSizeChange={state.onScrollToBottom}
             showsVerticalScrollIndicator={false}
+            ListFooterComponent={state.sending ? <TypingIndicator /> : undefined}
           />
         )}
         
         {/* Error state */}
         {state.error && (
-          <View className="mx-4 mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-            <Text className="font-sans text-sm text-red-600">
-              {state.error}
-            </Text>
-            <Pressable onPress={state.refetch} className="mt-1">
-              <Text className="font-sans text-xs text-red-500 underline">
-                Try again
+          <View className="mx-4 mb-2 flex-row items-start rounded-lg border border-red-200 bg-red-50 p-3">
+            <Feather name="alert-circle" size={16} color="#DC2626" />
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text className="font-sans-medium text-sm text-red-700">
+                Something went wrong
               </Text>
-            </Pressable>
+              <Text className="mb-2 font-sans text-sm text-red-600">
+                {state.error}
+              </Text>
+              <Pressable onPress={state.refetch} className="self-start">
+                <Text className="font-sans text-sm text-red-600 underline">
+                  Try again
+                </Text>
+              </Pressable>
+            </View>
           </View>
         )}
 
@@ -156,16 +170,29 @@ export function ChatThreadScreen({ conversationId }: Props) {
         <View className="border-t border-muted/20 bg-cream px-4 py-3">
           <View className="flex-row items-end">
             <View style={{ flex: 1, marginRight: 12 }}>
-              <TextInput
-                value={state.inputText}
-                onChangeText={state.onInputChange}
-                placeholder="Share what's on your heart..."
-                placeholderTextColor="rgba(140, 123, 106, 0.6)"
-                multiline
-                maxLength={500}
-                className="max-h-24 rounded-2xl border border-muted/25 bg-white px-4 py-3 font-sans text-base text-ink"
-                style={{ textAlignVertical: "top" }}
-              />
+              <View className="relative">
+                <TextInput
+                  value={state.inputText}
+                  onChangeText={state.onInputChange}
+                  placeholder="Share what's on your heart..."
+                  placeholderTextColor="rgba(140, 123, 106, 0.6)"
+                  multiline
+                  maxLength={500}
+                  className="max-h-24 rounded-2xl border border-muted/25 bg-white px-4 py-3 pr-12 font-sans text-base text-ink"
+                  style={{ textAlignVertical: "top" }}
+                />
+                
+                {/* Character counter */}
+                {state.inputText.length > 0 && (
+                  <View 
+                    className="absolute bottom-2 right-3 rounded-full bg-parchment px-2 py-1"
+                  >
+                    <Text className="font-sans text-xs text-muted">
+                      {state.inputText.length}/500
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             <Pressable
@@ -173,16 +200,29 @@ export function ChatThreadScreen({ conversationId }: Props) {
               disabled={!state.canSend}
               className="h-12 w-12 items-center justify-center rounded-full shadow-sm"
               style={{ 
-                backgroundColor: state.canSend ? "#C9973A" : "#E8E0D6" 
+                backgroundColor: state.canSend ? "#C9973A" : "#E8E0D6",
+                transform: [{ scale: state.sending ? 0.95 : 1 }],
               }}
             >
               <Feather
                 name={state.sending ? "loader" : "send"}
                 size={17}
                 color={state.canSend ? "#FFFFFF" : "rgba(140, 123, 106, 0.5)"}
+                style={{
+                  transform: [{ 
+                    rotate: state.sending ? "0deg" : "0deg" 
+                  }],
+                }}
               />
             </Pressable>
           </View>
+          
+          {/* Helpful hint */}
+          {state.messages.length === 0 && (
+            <Text className="mt-2 text-center font-sans text-xs text-muted/80">
+              💝 Feel free to share struggles, questions, or prayer requests
+            </Text>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
