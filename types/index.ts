@@ -7,8 +7,15 @@ export interface Verse {
   relevance?: string;
 }
 
+export interface BibleCharacter {
+  name: string;
+  story: string;
+  connection: string;
+}
+
 export interface EncouragementResponse {
   intro: string;
+  character?: BibleCharacter;
   verses: Verse[];
   closing: string;
   rebuke?: string | null;
