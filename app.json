@@ -6,6 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
     "icon": "./assets/brand/abide-symbol.png",
     "splash": {
       "image": "./assets/brand/abide-logo.png",

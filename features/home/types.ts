@@ -54,6 +54,7 @@ export interface DailyDevotionProgress {
   dateKey: string;
   isCompleted: boolean;
   completedAt?: string | null;
+  dismissedAt?: string | null;
   isFavorite: boolean;
 }
 
@@ -99,6 +100,7 @@ export interface DailyDevotionStoryScreenProps {
   title: string;
   image: ImageSourcePropType;
   isCompleted: boolean;
+  canDismiss: boolean;
   activeStepIndex: number;
   totalSteps: number;
   stepDurationMs: number;
@@ -112,6 +114,7 @@ export interface DailyDevotionStoryScreenProps {
     onPrimaryActionPress?: () => void;
   }[];
   onBack?: () => void;
+  onDismiss?: () => void;
   onNext?: () => void;
   onPrevious?: () => void;
 }

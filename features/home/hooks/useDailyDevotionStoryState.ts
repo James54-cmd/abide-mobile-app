@@ -25,8 +25,17 @@ function formatDateLabel(d: Date): string {
 export function useDailyDevotionStoryState(): DailyDevotionStoryScreenProps {
   const router = useRouter();
   const now = useMemo(() => new Date(), []);
-  const { devotion, progress, completeDevotion } = useDailyDevotion(now);
+  const { devotion, progress, completeDevotion, dismissForToday } = useDailyDevotion(now);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+
+  const goHomeSafely = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace("/(tabs)/home");
+  }, [router]);
 
   const onOpenPassage = useCallback(() => {
     router.push(buildBibleChapterPath(devotion.passage.bookId, devotion.passage.chapter) as Href);
@@ -83,21 +92,29 @@ export function useDailyDevotionStoryState(): DailyDevotionStoryScreenProps {
   }, []);
 
   const onBack = useCallback(() => {
-    router.back();
-  }, [router]);
+    goHomeSafely();
+  }, [goHomeSafely]);
+
+  const onDismiss = useCallback(async () => {
+    if (!progress.isCompleted) {
+      await dismissForToday();
+    }
+    router.replace("/(tabs)/home");
+  }, [dismissForToday, progress.isCompleted, router]);
 
   const finishIfNeeded = useCallback(async () => {
     if (!progress.isCompleted) {
       await completeDevotion();
     }
-    router.back();
-  }, [completeDevotion, progress.isCompleted, router]);
+    goHomeSafely();
+  }, [completeDevotion, goHomeSafely, progress.isCompleted]);
 
   return {
     dateLabel: formatDateLabel(now),
     title: devotion.theme,
     image: devotion.image,
     isCompleted: progress.isCompleted,
+    canDismiss: !progress.isCompleted,
     activeStepIndex,
     totalSteps: steps.length,
     stepDurationMs: 6000,
@@ -111,6 +128,7 @@ export function useDailyDevotionStoryState(): DailyDevotionStoryScreenProps {
         : step
     ),
     onBack,
+    onDismiss,
     onNext,
     onPrevious,
   };

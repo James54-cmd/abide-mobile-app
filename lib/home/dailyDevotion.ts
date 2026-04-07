@@ -1,5 +1,8 @@
 import { splashArtSlides } from "@/constants/splash";
 import { cacheJson, getCachedJson, offlineKeys } from "@/lib/native/offline";
+import {
+  loadRemoteDailyDevotionProgress,
+} from "@/lib/supabase/dailyDevotion";
 import type { DailyDevotionEntry, DailyDevotionProgress } from "@/features/home/types";
 import type { StreakState } from "@/types";
 
@@ -211,6 +214,7 @@ export function getDefaultDailyDevotionProgress(dateKey: string): DailyDevotionP
     dateKey,
     isCompleted: false,
     completedAt: null,
+    dismissedAt: null,
     isFavorite: false,
   };
 }
@@ -220,12 +224,53 @@ export async function loadDailyDevotionProgress(dateKey: string): Promise<DailyD
   if (!cached || cached.dateKey !== dateKey) {
     return getDefaultDailyDevotionProgress(dateKey);
   }
+  return normalizeLocalDailyDevotionProgress(dateKey, cached);
+}
+
+export function normalizeLocalDailyDevotionProgress(
+  dateKey: string,
+  cached: Partial<DailyDevotionProgress> | null | undefined
+): DailyDevotionProgress {
   return {
     dateKey,
-    isCompleted: cached.isCompleted ?? false,
-    completedAt: cached.completedAt ?? null,
-    isFavorite: cached.isFavorite ?? false,
+    isCompleted: cached?.isCompleted ?? false,
+    completedAt: cached?.completedAt ?? null,
+    dismissedAt: cached?.dismissedAt ?? null,
+    isFavorite: cached?.isFavorite ?? false,
   };
+}
+
+export async function resolveDailyDevotionProgress(
+  dateKey: string,
+  userId?: string | null
+): Promise<DailyDevotionProgress> {
+  if (userId) {
+    try {
+      const remote = await loadRemoteDailyDevotionProgress(userId, dateKey);
+      if (remote) {
+        await saveDailyDevotionProgress(remote);
+        return remote;
+      }
+      const emptyProgress = getDefaultDailyDevotionProgress(dateKey);
+      await saveDailyDevotionProgress(emptyProgress);
+      return emptyProgress;
+    } catch (error) {
+      console.warn("Falling back to default daily devotion progress for signed-in user.", error);
+      const emptyProgress = getDefaultDailyDevotionProgress(dateKey);
+      await saveDailyDevotionProgress(emptyProgress);
+      return emptyProgress;
+    }
+  }
+
+  return loadDailyDevotionProgress(dateKey);
+}
+
+export async function shouldPresentDailyDevotionOnLaunch(
+  dateKey: string,
+  userId?: string | null
+): Promise<boolean> {
+  const progress = await resolveDailyDevotionProgress(dateKey, userId);
+  return !progress.isCompleted && !progress.dismissedAt;
 }
 
 export async function saveDailyDevotionProgress(progress: DailyDevotionProgress): Promise<void> {

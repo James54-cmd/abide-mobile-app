@@ -24,11 +24,13 @@ export function DailyDevotionStoryScreenView({
   title,
   image,
   isCompleted,
+  canDismiss,
   activeStepIndex,
   totalSteps,
   stepDurationMs,
   steps,
   onBack,
+  onDismiss,
   onNext,
   onPrevious,
 }: DailyDevotionStoryScreenProps) {
@@ -68,14 +70,26 @@ export function DailyDevotionStoryScreenView({
         <View style={styles.overlay} />
 
         <View style={styles.header}>
-          <Pressable
-            onPress={onBack}
-            accessibilityRole="button"
-            accessibilityLabel="Back to home"
-            style={styles.iconButton}
-          >
-            <Feather name="chevron-left" size={22} color={colors.white} />
-          </Pressable>
+          <View style={styles.headerLeft}>
+            <Pressable
+              onPress={onBack}
+              accessibilityRole="button"
+              accessibilityLabel="Back to home"
+              style={styles.iconButton}
+            >
+              <Feather name="chevron-left" size={22} color={colors.white} />
+            </Pressable>
+            {canDismiss ? (
+              <Pressable
+                onPress={onDismiss}
+                accessibilityRole="button"
+                accessibilityLabel="Close today's devotion for now"
+                style={styles.dismissButton}
+              >
+                <Text style={styles.dismissButtonText}>Later</Text>
+              </Pressable>
+            ) : null}
+          </View>
 
           <View style={styles.progressRow}>
             {steps.map((step, index) => (
@@ -175,6 +189,11 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingTop: 8,
   },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   iconButton: {
     width: 42,
     height: 42,
@@ -182,6 +201,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.14)",
+  },
+  dismissButton: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  dismissButtonText: {
+    fontFamily: "sans-medium",
+    fontSize: 12,
+    color: colors.white,
   },
   progressRow: {
     flex: 1,

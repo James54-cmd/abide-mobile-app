@@ -1,3 +1,4 @@
+import { getDateKey, shouldPresentDailyDevotionOnLaunch } from "@/lib/home/dailyDevotion";
 import { consumePostSignOutRedirect } from "@/lib/auth/postSignOutRedirect";
 import { isSignedInHomeNavigationSuppressed } from "@/lib/auth/signedInNavigationGate";
 import { supabase } from "@/lib/supabase";
@@ -50,6 +51,12 @@ async function validateStoredSessionWithServer() {
   await supabase.auth.signOut();
 }
 
+async function navigateSignedInUserToFirstScreen() {
+  const userId = useAuthStore.getState().userId;
+  const shouldPresent = await shouldPresentDailyDevotionOnLaunch(getDateKey(new Date()), userId);
+  router.replace((shouldPresent ? "/daily-devotion" : "/(tabs)/home") as Href);
+}
+
 /** Keeps Zustand in sync with Supabase session and sends authed users to the main tabs. */
 export function AuthBootstrap() {
   useEffect(() => {
@@ -65,7 +72,7 @@ export function AuthBootstrap() {
       if (!session?.user) return;
       syncStoreFromSession(session);
       if (event === "INITIAL_SESSION") {
-        router.replace("/(tabs)/home");
+        void navigateSignedInUserToFirstScreen();
         return;
       }
       // `updateUser({ password })` and token refresh sync the session but must not send users to tabs.
@@ -74,7 +81,7 @@ export function AuthBootstrap() {
       }
       if (event === "SIGNED_IN") {
         if (isSignedInHomeNavigationSuppressed()) return;
-        router.replace("/(tabs)/home");
+        void navigateSignedInUserToFirstScreen();
       }
     });
 
