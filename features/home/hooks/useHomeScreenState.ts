@@ -1,21 +1,32 @@
+import { useDailyDevotion } from "@/features/home/hooks/useDailyDevotion";
 import type { DevotionalModuleKind, HomeScreenProps } from "@/features/home/types";
+import { buildBibleChapterPath } from "@/features/bible/utils/chapterRoute";
 import type { Conversation } from "@/types";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useRouter } from "expo-router";
+import { useStreakStore } from "@/store/useStreakStore";
+import { useRouter, type Href } from "expo-router";
 import { useCallback, useMemo } from "react";
 
 const MOCK_CONVERSATIONS: Conversation[] = [
   {
     id: "c1",
+    user_id: "demo-user",
     title: "Anxious heart",
     last_message: "You are held in grace.",
-    updatedAt: new Date().toISOString(),
+    title_status: "generated",
+    message_count: 2,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   },
   {
     id: "c2",
+    user_id: "demo-user",
     title: "Purpose today",
     last_message: "Walk in gentle obedience.",
-    updatedAt: new Date().toISOString(),
+    title_status: "generated",
+    message_count: 3,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   },
 ];
 
@@ -51,6 +62,7 @@ function buildWeekDays(now: Date) {
 export function useHomeScreenState(): HomeScreenProps {
   const router = useRouter();
   const authName = useAuthStore((s) => s.name);
+  const streakCount = useStreakStore((s) => s.streakCount);
 
   const name = useMemo(() => (authName?.trim() ? authName : "Beloved"), [authName]);
   const userInitial = useMemo(
@@ -60,6 +72,11 @@ export function useHomeScreenState(): HomeScreenProps {
 
   const now = useMemo(() => new Date(), []);
   const weekDays = useMemo(() => buildWeekDays(now), [now]);
+  const { devotion, progress, toggleFavorite } = useDailyDevotion(now);
+
+  const openDailyDevotion = useCallback(() => {
+    router.push("/daily-devotion");
+  }, [router]);
 
   const onHeartPress = useCallback(() => {
     router.push("/(tabs)/chat");
@@ -85,67 +102,84 @@ export function useHomeScreenState(): HomeScreenProps {
   }, [router]);
 
   const onModulePress = useCallback(
-    (_id: string, _kind: DevotionalModuleKind) => {
-      router.push("/(tabs)/chat");
+    (_id: string, kind: DevotionalModuleKind) => {
+      if (kind === "passage") {
+        router.push(
+          buildBibleChapterPath(devotion.passage.bookId, devotion.passage.chapter) as Href
+        );
+        return;
+      }
+
+      openDailyDevotion();
     },
-    [router]
+    [devotion.passage.bookId, devotion.passage.chapter, openDailyDevotion, router]
   );
 
   const onPassageListen = useCallback(
     (_moduleId: string) => {
-      router.push("/(tabs)/bible");
+      router.push(buildBibleChapterPath(devotion.passage.bookId, devotion.passage.chapter) as Href);
     },
-    [router]
+    [devotion.passage.bookId, devotion.passage.chapter, router]
   );
 
   const onPassageRead = useCallback(
     (_moduleId: string) => {
-      router.push("/(tabs)/bible");
+      router.push(buildBibleChapterPath(devotion.passage.bookId, devotion.passage.chapter) as Href);
     },
-    [router]
+    [devotion.passage.bookId, devotion.passage.chapter, router]
   );
-
-  const onFavoritePress = useCallback(() => {
-    // Reserved for favorites / save flow
-  }, []);
 
   return {
     userInitial,
-    headerTitle: "Grow With God",
-    streakCount: 0,
+    headerTitle: "Daily Abide",
+    streakCount,
     weekDays,
-    calendarLinkLabel: "VIEW CALENDAR & FAVORITES",
+    calendarLinkLabel: "CALENDAR COMING SOON",
     onCalendarPress,
     onCommunityPress,
+    quoteImage: devotion.image,
+    quoteText: devotion.quote.text,
+    quoteAuthor: devotion.quote.author,
+    quoteSourceLabel: devotion.quote.sourceLabel,
+    quoteTheme: devotion.theme,
+    quoteCompleted: progress.quoteCompleted,
+    onQuoteCompletePress: openDailyDevotion,
     dateLabel: formatDateLabel(now),
-    dailyTopicTitle: "Goodness",
+    dailyTopicTitle: devotion.theme,
     dailySectionLabel: "DAILY DEVOTIONAL",
-    onFavoritePress,
+    isFavorite: progress.isFavorite,
+    onFavoritePress: () => {
+      void toggleFavorite();
+    },
     modules: [
-      {
-        id: "mod-quote",
-        kind: "quote",
-        title: "Quote",
-        completed: true,
-      },
       {
         id: "mod-passage",
         kind: "passage",
-        title: "Passage",
+        title: "Scripture",
         durationMinutes: 2,
-        passageReference: "Genesis 1:26-31",
+        completed: progress.passageCompleted,
+        summary: devotion.passage.summary,
+        passageReference: devotion.passage.reference,
       },
       {
         id: "mod-devotional",
         kind: "devotional",
         title: "Devotional",
         durationMinutes: 4,
+        completed: progress.devotionalCompleted,
+        summary: devotion.devotional.title,
+        body: devotion.devotional.body,
+        actionLabel: progress.devotionalCompleted ? "Completed today" : "Open daily devotion",
       },
       {
         id: "mod-prayer",
         kind: "prayer",
         title: "Prayer",
         durationMinutes: 2,
+        completed: progress.prayerCompleted,
+        summary: devotion.prayer.title,
+        body: devotion.prayer.body,
+        actionLabel: progress.prayerCompleted ? "Completed today" : "Open daily devotion",
       },
     ],
     onModulePress,
@@ -153,7 +187,7 @@ export function useHomeScreenState(): HomeScreenProps {
     onPassageRead,
     onPrimaryPromptPress: onHeartPress,
     primaryPromptTitle: "What's on your heart?",
-    primaryPromptSubtitle: "Start a conversation with Abide",
+    primaryPromptSubtitle: "Talk with Abide after today's devotion",
     conversations: MOCK_CONVERSATIONS,
     onConversationPress,
     onSettingsPress,

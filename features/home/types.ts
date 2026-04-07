@@ -1,4 +1,5 @@
 import type { Conversation } from "@/types";
+import type { ImageSourcePropType } from "react-native";
 
 export type DevotionalModuleKind = "quote" | "passage" | "devotional" | "prayer";
 
@@ -17,8 +18,48 @@ export interface DevotionalModuleItem {
   title: string;
   durationMinutes?: number;
   completed?: boolean;
+  summary?: string;
+  body?: string;
+  actionLabel?: string;
   /** Shown on passage row (e.g. Genesis 1:26-31) */
   passageReference?: string;
+}
+
+export interface DailyDevotionEntry {
+  id: string;
+  theme: string;
+  image: ImageSourcePropType;
+  quote: {
+    text: string;
+    author: string;
+    sourceLabel: string;
+  };
+  passage: {
+    reference: string;
+    bookId: string;
+    chapter: number;
+    summary: string;
+  };
+  devotional: {
+    title: string;
+    body: string;
+  };
+  prayer: {
+    title: string;
+    body: string;
+  };
+}
+
+export interface DailyDevotionProgress {
+  dateKey: string;
+  quoteCompleted: boolean;
+  passageCompleted: boolean;
+  devotionalCompleted: boolean;
+  prayerCompleted: boolean;
+  isCompleted: boolean;
+  completedAt?: string | null;
+  dismissedAt?: string | null;
+  isFavorite: boolean;
 }
 
 /**
@@ -33,9 +74,17 @@ export interface HomeScreenProps {
   calendarLinkLabel: string;
   onCalendarPress?: () => void;
   onCommunityPress?: () => void;
+  quoteImage: ImageSourcePropType;
+  quoteText: string;
+  quoteAuthor: string;
+  quoteSourceLabel: string;
+  quoteTheme: string;
+  quoteCompleted: boolean;
+  onQuoteCompletePress?: () => void;
   dateLabel: string;
   dailyTopicTitle: string;
   dailySectionLabel: string;
+  isFavorite?: boolean;
   onFavoritePress?: () => void;
   modules: DevotionalModuleItem[];
   onModulePress?: (id: string, kind: DevotionalModuleKind) => void;
@@ -48,4 +97,29 @@ export interface HomeScreenProps {
   conversations: Conversation[];
   onConversationPress?: (id: string) => void;
   onSettingsPress?: () => void;
+}
+
+export interface DailyDevotionStoryScreenProps {
+  dateLabel: string;
+  title: string;
+  image: ImageSourcePropType;
+  isCompleted: boolean;
+  canDismiss: boolean;
+  activeStepIndex: number;
+  totalSteps: number;
+  stepDurationMs: number;
+  steps: {
+    id: string;
+    eyebrow: string;
+    title: string;
+    body: string;
+    caption?: string;
+    primaryActionLabel?: string;
+    onPrimaryActionPress?: () => void;
+  }[];
+  onBack?: () => void;
+  onDismiss?: () => void;
+  onStepTimeout?: () => void | Promise<void>;
+  onNext?: () => void;
+  onPrevious?: () => void;
 }
