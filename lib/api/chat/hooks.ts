@@ -12,12 +12,12 @@ import {
   updateConversationTitle,
 } from "@/lib/supabase/chat/mutations";
 import type { ChatMessage, Conversation } from "@/types";
-import { 
-  createChatError, 
-  ChatErrorCodes, 
+import {
+  createChatError,
+  ChatErrorCodes,
   normalizeChatError,
-  type ChatError 
-} from "@/features/chat/utils/chatErrors";
+  type ChatError,
+} from "@/lib/api/chat/errors";
 import {
   subscribeToConversationMessages,
   subscribeToUserConversations, 
