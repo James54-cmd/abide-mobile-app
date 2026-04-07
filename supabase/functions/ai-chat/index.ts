@@ -20,20 +20,16 @@ type BibleCharacter = {
   connection: string;
 };
 
-type EncouragementResponse = {
-  intro: string;
-  character?: BibleCharacter;
-  verses: Array<{ reference: string; text: string }>;
-  closing: string;
-};
 
-// Smart title generation system
-type TitleStatus = 'pending' | 'generated' | 'locked' | 'user_edited';
+
+// Smart title generation — extractive first (user’s words), then themes, then trimmed raw text.
+const MAX_CONVERSATION_TITLE_LEN = 56;
+
 
 function shouldRefineTitle(title: string): boolean {
   const weakTitles = new Set([
     "Check This",
-    "Need Help", 
+    "Need Help",
     "Question",
     "Hello",
     "Hi",
@@ -42,113 +38,137 @@ function shouldRefineTitle(title: string): boolean {
     "Untitled",
     "Help Me",
     "Can You",
-    "Please Help"
+    "Please Help",
+    "Conversation",
+    "New conversation",
   ]);
 
   const normalizedTitle = title.trim();
   return weakTitles.has(normalizedTitle) || normalizedTitle.length < 10;
 }
 
-function generateTitleFromMessage(message: string): string {
-  const text = normalizeMessage(message);
-
-  // Intent-based pattern matching for common topics
-  const patterns = [
-    {
-      test: /supabase|jwt|401|403|auth|authentication|login|signin/i,
-      title: "Fix Supabase Auth Error"
-    },
-    {
-      test: /react[\s-]?native|expo|mobile app|ios|android/i,
-      title: "React Native App Issue"
-    },
-    {
-      test: /openai|gpt|ai|chatgpt|artificial intelligence/i,
-      title: "OpenAI Integration Help"
-    },
-    {
-      test: /laravel|php|employee|notification|backend/i,
-      title: "Laravel Backend Issue"
-    },
-    {
-      test: /bible|scripture|verse|faith|prayer|spiritual/i,
-      title: "Biblical Guidance"
-    },
-    {
-      test: /database|sql|postgres|mysql|query/i,
-      title: "Database Query Help"
-    },
-    {
-      test: /deploy|deployment|production|server|hosting/i,
-      title: "Deployment Issue"
-    },
-    {
-      test: /error|bug|fix|broken|not working/i,
-      title: "Fix Code Error"
-    },
-    {
-      test: /setup|install|configuration|config/i,
-      title: "Setup Configuration"
-    },
-    {
-      test: /design|ui|ux|frontend|styling|css/i,
-      title: "UI Design Help"
-    }
-  ];
-
-  // Try pattern matching first
-  for (const rule of patterns) {
-    if (rule.test.test(text)) {
-      return rule.title;
-    }
-  }
-
-  // Fallback to semantic extraction
-  return fallbackSemanticTitle(text);
-}
-
-function fallbackSemanticTitle(text: string): string {
-  // Clean and normalize the text
-  const cleaned = text
-    .replace(/[^\w\s-]/g, " ") // Replace special chars with spaces
-    .replace(/\s+/g, " ") // Normalize whitespace
-    .trim();
-
-  const words = cleaned.split(" ").filter(Boolean);
-
-  // Remove common stop words
-  const stopWords = new Set([
-    "i", "am", "is", "are", "the", "a", "an", "and", "or", "but",
-    "can", "you", "please", "help", "with", "this", "that", "my", 
-    "to", "for", "in", "on", "of", "at", "by", "from", "me", "we",
-    "have", "has", "had", "do", "does", "did", "will", "would",
-    "could", "should", "may", "might", "must", "shall", "using",
-    "get", "getting", "make", "making", "want", "need", "trying",
-    "trying", "how", "what", "when", "where", "why", "who"
-  ]);
-
-  // Extract meaningful words
-  const meaningful = words.filter(word => 
-    word.length > 2 && !stopWords.has(word.toLowerCase())
-  );
-
-  // Take first 4-6 meaningful words
-  const titleWords = meaningful.slice(0, Math.min(6, meaningful.length));
-  
-  if (titleWords.length === 0) {
-    return "General Question";
-  }
-
-  const title = titleWords.join(" ");
-  return toTitleCase(title);
-}
-
 function normalizeMessage(message: string): string {
   return message.trim().replace(/\s+/g, " ");
 }
 
-function toTitleCase(input: string): string {
-  return input.replace(/\b\w/g, c => c.toUpperCase());
+function collapseWhitespace(s: string): string {
+  return s.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function toTitleCaseWords(s: string): string {
+  return collapseWhitespace(s)
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/** Truncate on a word boundary; add ellipsis when shortened. */
+function truncateForTitle(raw: string, maxLen: number): string {
+  const oneLine = collapseWhitespace(raw);
+  if (oneLine.length <= maxLen) return toTitleCaseWords(oneLine);
+  const slice = oneLine.slice(0, maxLen - 1);
+  const lastSpace = slice.lastIndexOf(" ");
+  const base = lastSpace > maxLen * 0.35 ? slice.slice(0, lastSpace) : slice.trimEnd();
+  return `${toTitleCaseWords(base)}…`;
+}
+
+function clampTitleLength(s: string, max = MAX_CONVERSATION_TITLE_LEN): string {
+  const t = collapseWhitespace(s);
+  if (t.length <= max) return t;
+  return truncateForTitle(t, max);
+}
+
+const GREETING_ONLY = /^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)\.?$/i;
+
+function isWeakExtractiveTitle(s: string): boolean {
+  const t = collapseWhitespace(s).toLowerCase();
+  if (t.length < 4) return true;
+  if (GREETING_ONLY.test(t)) return true;
+  return false;
+}
+
+function extractTitleFromKeywords(text: string): string {
+  const cleaned = text
+    .replace(/[^\p{L}\p{N}\s']/gu, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .trim();
+
+  const words = cleaned.split(" ").filter(Boolean);
+
+  const stopWords = new Set([
+    "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours",
+    "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself",
+    "it", "its", "itself", "they", "them", "their", "theirs", "themselves", "what", "which",
+    "who", "whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be",
+    "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an",
+    "the", "and", "but", "if", "or", "because", "as", "until", "while", "of", "at", "by",
+    "for", "with", "through", "during", "before", "after", "above", "below", "up", "down",
+    "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here",
+    "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more",
+    "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so",
+    "than", "too", "very", "can", "will", "just", "should", "now", "could", "would",
+    "hello", "hi", "hey", "please", "thank", "thanks", "im", "ive", "dont", "cant", "wont",
+  ]);
+
+  const meaningful = words.filter((w) => !stopWords.has(w) && w.length > 1);
+  if (meaningful.length === 0) return "";
+
+  const titleWords = meaningful.slice(0, 5);
+  return toTitleCaseWords(titleWords.join(" "));
+}
+
+function themePatterns(): Array<{ test: RegExp; title: string }> {
+  return [
+    { test: /pray|prayer|praying|intercede|petition|supplication/i, title: "Prayer request" },
+    { test: /bible|scripture|verse|psalm|gospel|genesis|revelation|matthew|john|romans/i, title: "Bible & scripture" },
+    { test: /faith|believe|trust|doubt|spiritual|soul|testimony/i, title: "Faith & trust" },
+    { test: /sin|forgive|repent|grace|mercy|salvation|redemption/i, title: "Forgiveness & grace" },
+    { test: /worship|praise|thanksgiving|grateful|blessed/i, title: "Praise & thanks" },
+    { test: /anxiety|worry|fear|stress|overwhelmed|burden|panic/i, title: "Anxiety & peace" },
+    { test: /depression|sad|lonely|empty|hopeless/i, title: "Hope & comfort" },
+    { test: /relationship|marriage|dating|family|children|parent|spouse/i, title: "Relationships & family" },
+    { test: /work|job|career|purpose|calling|ministry/i, title: "Work & calling" },
+    { test: /temptation|struggle|addiction|habit/i, title: "Struggles & habits" },
+    { test: /healing|health|sick|disease|pain|hospital/i, title: "Healing & health" },
+    { test: /decision|choice|guidance|direction|wisdom|discern/i, title: "Wisdom & decisions" },
+    { test: /money|financial|debt|bills|budget|wealth/i, title: "Money & stewardship" },
+    { test: /death|grief|loss|mourning|funeral/i, title: "Grief & loss" },
+    { test: /church|pastor|fellowship|community|denomination/i, title: "Church & community" },
+    { test: /question|wondering|curious|understand|mean/i, title: "Faith questions" },
+    { test: /help|advice|guidance|support|struggling/i, title: "Seeking support" },
+  ];
+}
+
+/**
+ * Build a short chat title: prefer user’s own words, then theme label, then clipped raw text.
+ * `message` may contain two user turns separated by newline when refining on 2nd message.
+ */
+function generateTitleFromMessage(message: string): string {
+  const raw = collapseWhitespace(message);
+  const text = normalizeMessage(message);
+
+  const fromKeywords = extractTitleFromKeywords(text);
+  if (fromKeywords && !isWeakExtractiveTitle(fromKeywords)) {
+    return clampTitleLength(fromKeywords);
+  }
+
+  for (const rule of themePatterns()) {
+    if (rule.test.test(text)) {
+      return clampTitleLength(rule.title);
+    }
+  }
+
+  if (fromKeywords) {
+    return clampTitleLength(fromKeywords);
+  }
+
+  if (raw.length > 0) {
+    return clampTitleLength(truncateForTitle(raw, MAX_CONVERSATION_TITLE_LEN));
+  }
+
+  return "New Conversation";
 }
 
 // Enhanced response system with contextual awareness
@@ -578,7 +598,7 @@ Deno.serve(async (req) => {
       throw new Error("Failed to validate rate limit")
     }
 
-    if ((count ?? 0) >= 10) {
+    if ((count ?? 0) > 10) {
       throw new Error("Rate limit exceeded. Please wait before sending more messages.")
     }
 
@@ -591,22 +611,8 @@ Deno.serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    // Store user message first
-    const { data: userMessage, error: userMessageError } = await serviceClient
-      .from('chat_messages')
-      .insert({
-        conversation_id: conversationId,
-        role: 'user',
-        content: message,
-        user_id: user.id,
-      })
-      .select('id')
-      .single();
-
-    if (userMessageError) {
-      console.error('Failed to store user message:', userMessageError);
-      throw new Error('Failed to store message');
-    }
+    // The client persists the user message before calling this function.
+    // This function should only generate and store the assistant response.
 
     // Check if this is the first user message and generate title if needed
     const { count: userMessageCount } = await serviceClient
@@ -623,6 +629,14 @@ Deno.serve(async (req) => {
       .select('title, title_status, message_count')
       .eq('id', conversationId)
       .single();
+
+    let generatedConversationTitle: string | null = null;
+    let generatedTitleStatus:
+      | 'pending'
+      | 'generated'
+      | 'locked'
+      | 'user_edited'
+      | null = null;
 
     let shouldGenerateTitle = false;
     
@@ -644,7 +658,27 @@ Deno.serve(async (req) => {
 
       // Generate and update title if needed
       if (shouldGenerateTitle) {
-        const newTitle = generateTitleFromMessage(message);
+        let titleInput = message;
+        if ((userMessageCount || 0) === 2) {
+          const { data: userRows } = await serviceClient
+            .from("chat_messages")
+            .select("content")
+            .eq("conversation_id", conversationId)
+            .eq("role", "user")
+            .order("created_at", { ascending: true })
+            .limit(2);
+          if (
+            userRows &&
+            userRows.length >= 2 &&
+            typeof userRows[0].content === "string" &&
+            typeof userRows[1].content === "string"
+          ) {
+            titleInput = `${userRows[0].content}\n${userRows[1].content}`;
+          }
+        }
+        const newTitle = generateTitleFromMessage(titleInput);
+        generatedConversationTitle = newTitle;
+        generatedTitleStatus = 'generated';
         console.log(`Generating title for conversation ${conversationId}: "${newTitle}"`);
         
         await serviceClient
@@ -859,10 +893,12 @@ Deno.serve(async (req) => {
       // Still return the AI response even if storage fails
     }
 
-    // Update conversation timestamp
+    const responseNow = new Date().toISOString();
+
+    // Update conversation timestamp (single source for client `updated_at`)
     const { error: conversationUpdateError } = await serviceClient
       .from("chat_conversations")
-      .update({ updated_at: new Date().toISOString() })
+      .update({ updated_at: responseNow })
       .eq("id", conversationId)
       .eq("user_id", user.id);
     
@@ -870,7 +906,16 @@ Deno.serve(async (req) => {
       console.error('Conversation update error:', conversationUpdateError)
     }
 
-    // Return successful response with conversation title update if applicable
+    const responseTitle =
+      generatedConversationTitle ??
+      (typeof currentConversation?.title === 'string' ? currentConversation.title : null) ??
+      'New Conversation';
+    const responseTitleStatus =
+      generatedTitleStatus ??
+      (currentConversation?.title_status as typeof generatedTitleStatus | undefined) ??
+      'pending';
+
+    // Return successful response with conversation snapshot for immediate client sync
     return new Response(
       JSON.stringify({
         success: true,
@@ -882,6 +927,12 @@ Deno.serve(async (req) => {
           encouragement: encouragementData,
           created_at: aiMessage?.created_at || new Date().toISOString(),
           user_id: user.id
+        },
+        conversation: {
+          id: conversationId,
+          title: responseTitle,
+          title_status: responseTitleStatus,
+          updated_at: responseNow,
         },
         titleUpdated: shouldGenerateTitle
       }),

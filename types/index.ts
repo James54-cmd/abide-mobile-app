@@ -33,6 +33,8 @@ export interface LightEncouragementResponse {
 // Union type for all encouragement formats
 export type EncouragementResponse = FullEncouragementResponse | LightEncouragementResponse;
 
+export type MessageStatus = "sending" | "sent" | "loading" | "failed";
+
 export interface ChatMessage {
   id: string | number;
   conversation_id: string;
@@ -41,6 +43,10 @@ export interface ChatMessage {
   content: string;
   encouragement?: EncouragementResponse | string | null; // Casual=null, Light=LightEncouragementResponse, Deep=FullEncouragementResponse, Legacy=string
   created_at: string;
+  // Optimistic update fields for smooth UX
+  status?: MessageStatus;
+  isPlaceholder?: boolean;
+  localId?: string; // Stable client-side ID for optimistic messages
 }
 
 export interface Conversation {

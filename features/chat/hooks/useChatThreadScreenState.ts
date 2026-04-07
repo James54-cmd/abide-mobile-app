@@ -1,99 +1,137 @@
 import type { ChatThreadScreenProps } from "@/features/chat/types";
-import { useGetConversationMessages, useSendMessage } from "@/lib/api/chat/hooks";
-import { triggerSend } from "@/lib/native/haptics";
+import { useChatThreadOptimisticList } from "@/features/chat/hooks/useChatThreadOptimisticList";
+import { useChatThreadSend } from "@/features/chat/hooks/useChatThreadSend";
+import {
+  useConversationMessagesRealtime,
+  useDeleteConversation,
+  useRenameConversation,
+} from "@/lib/api/chat/hooks";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useChatStore } from "@/store/useChatStore";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 
 /**
- * Feature hook for chat thread screen - follows SKILL.md Rule 10 (calls data hooks, not clients)
- * Composes data hooks and provides screen-specific logic and handlers.
+ * Chat thread screen state — SKILL.md:
+ * - Rules 10–11: data via `lib/api/chat` hooks only (no direct `supabase` here).
+ * - Rule 9: composed from `useChatThreadOptimisticList` + `useChatThreadSend`.
+ * - Conversation header row: `useChatStore` (cross-screen title sync; Rule 11).
  */
 export function useChatThreadScreenState(conversationId: string): ChatThreadScreenProps {
   const router = useRouter();
-  const [inputText, setInputText] = useState("");
-
-  // Validate conversationId to prevent undefined UUID errors
-  const isValidConversationId = Boolean(conversationId && 
-    conversationId !== 'undefined' && 
-    conversationId.trim() !== '');
-
-  // Rule 6: Data hooks in lib/ - feature hooks call them  
-  const { 
-    data: messages, 
-    loadState, 
-    errorMessage, 
-    refetch 
-  } = useGetConversationMessages(isValidConversationId ? conversationId : '');
-
-  const { 
-    sendUserMessage,
-    sendForEncouragement, 
-    sending 
-  } = useSendMessage();
-
-  const canSend = useMemo(() => 
-    isValidConversationId && inputText.trim().length > 0 && !sending, 
-    [isValidConversationId, inputText, sending]
-  );
-
   const onBack = useCallback(() => {
     router.back();
   }, [router]);
+  const [inputText, setInputText] = useState("");
+  const { userId } = useAuthStore();
 
-  const onInputChange = useCallback((text: string) => {
-    setInputText(text);
-  }, []);
+  const { conversations, upsertConversation, removeConversation } = useChatStore();
 
-  const onSend = useCallback(async () => {
-    const trimmed = inputText.trim();
-    if (!trimmed || !isValidConversationId) return;
-    
-    try {
-      void triggerSend();
-      setInputText("");
-      
-      // Natural chat flow:
-      // 1. Send user message first (appears immediately)
-      const userMessage = await sendUserMessage(conversationId, trimmed);
-      
-      // 2. Refresh to show user message right away
-      refetch();
-      
-      // 3. Get AI response (user can see "AI is typing..." here)  
-      const currentMessages = [...(messages ?? []), userMessage];
-      const aiResult = await sendForEncouragement(conversationId, trimmed, currentMessages);
-      
-      // Handle conversation title updates
-      if (aiResult.conversation?.title_updated) {
-        console.log('Title updated for conversation:', conversationId);
-        // The conversation list will refresh automatically on next navigation
+  const isValidConversationId = Boolean(
+    conversationId && conversationId !== "undefined" && conversationId.trim() !== ""
+  );
+
+  const conversation = useMemo(
+    () => conversations.find((c) => c.id === conversationId) || null,
+    [conversations, conversationId]
+  );
+
+  const {
+    data: serverMessages,
+    loadState,
+    errorMessage,
+    refetch,
+  } = useConversationMessagesRealtime(isValidConversationId ? conversationId : "");
+
+  const { optimisticMessages, setOptimisticMessages, messages } =
+    useChatThreadOptimisticList(serverMessages);
+
+  const { deleteConversation, deleting } = useDeleteConversation();
+  const { renameConversation, renaming, getOptimisticTitle } = useRenameConversation();
+
+  const handleDeleteConversation = useCallback(
+    async (id: string) => {
+      const result = await deleteConversation(id);
+
+      if (result.success) {
+        removeConversation(id);
+        onBack();
       }
-      
-      // 4. Refresh again to show AI response when ready
-      refetch();
-      
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      // TODO: Show user-friendly error toast
+
+      return result;
+    },
+    [deleteConversation, removeConversation, onBack]
+  );
+
+  const handleRenameConversation = useCallback(
+    async (id: string, newTitle: string) => {
+      const result = await renameConversation(id, newTitle);
+
+      if (result.conversation) {
+        upsertConversation(result.conversation);
+      }
+
+      return result;
+    },
+    [renameConversation, upsertConversation]
+  );
+
+  const conversationWithOptimisticTitle = useMemo(() => {
+    if (!conversation) return null;
+
+    if (conversation.title_status === "generated" || conversation.title_status === "user_edited") {
+      return conversation;
     }
-  }, [inputText, conversationId, isValidConversationId, sendUserMessage, sendForEncouragement, messages, refetch]);
+
+    const optimisticTitle = getOptimisticTitle(conversation.id, conversation.title);
+    return {
+      ...conversation,
+      title: optimisticTitle,
+    };
+  }, [conversation, getOptimisticTitle]);
+
+  const {
+    sending,
+    sendError,
+    canSend,
+    onInputChange,
+    handleSendMessage,
+  } = useChatThreadSend({
+    conversationId,
+    userId,
+    isValidConversationId,
+    serverMessages,
+    refetch,
+    conversations,
+    upsertConversation,
+    optimisticMessages,
+    setOptimisticMessages,
+    inputText,
+    setInputText,
+  });
 
   const onScrollToBottom = useCallback(() => {
-    // Handler for FlatList onContentSizeChange - implementation handled in component
+    // FlatList scroll handled in screen
   }, []);
 
   return {
     conversationId,
-    messages: messages ?? [],
+    conversation: conversationWithOptimisticTitle,
+    messages,
     loading: loadState === "loading",
     error: isValidConversationId ? errorMessage : "Invalid conversation ID",
     inputText,
     canSend,
     sending,
+    sendError: sendError?.userMessage || null,
+    isDeleting: deleting === conversationId,
+    isRenaming: renaming === conversationId,
     onBack,
     onInputChange,
-    onSend,
+    onSend: handleSendMessage,
     onScrollToBottom,
+    onDeleteConversation: handleDeleteConversation,
+    onRenameConversation: handleRenameConversation,
     refetch,
   };
 }

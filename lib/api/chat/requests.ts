@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { ChatMessage } from "@/types";
+import type { ChatMessage, Conversation } from "@/types";
 
 /**
  * AI Chat requests using secure Supabase Edge Functions
@@ -14,6 +14,14 @@ export interface AiChatRequest {
   history: ChatMessage[];
 }
 
+/** Snapshot of `chat_conversations` row fields the edge function returns for client sync */
+export interface AiChatConversationPayload {
+  id: string;
+  title: string;
+  title_status: Conversation["title_status"];
+  updated_at: string;
+}
+
 export interface AiChatResponse {
   success: true;
   message: {
@@ -21,14 +29,13 @@ export interface AiChatResponse {
     conversation_id: string;
     role: 'assistant';
     content: string;
-    encouragement?: any; // The structured encouragement JSON
+    encouragement?: unknown;
     created_at: string;
     user_id: string;
   };
-  conversation?: {
-    title_updated: boolean;
-    title?: string;
-  };
+  conversation?: AiChatConversationPayload;
+  /** Legacy flag; prefer `conversation` for title + status */
+  titleUpdated?: boolean;
 }
 
 export interface AiChatError {
@@ -36,16 +43,56 @@ export interface AiChatError {
   error: string;
 }
 
+function isConversationTitleStatus(v: unknown): v is Conversation["title_status"] {
+  return (
+    v === "pending" ||
+    v === "generated" ||
+    v === "locked" ||
+    v === "user_edited"
+  );
+}
+
+/**
+ * Narrow untrusted Edge Function JSON to a typed conversation snapshot (SKILL.md: unknown + guards, no `any`).
+ */
+export function parseAiChatConversationPayload(raw: unknown): AiChatConversationPayload | undefined {
+  if (raw === null || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  if (
+    typeof o.id !== "string" ||
+    typeof o.title !== "string" ||
+    typeof o.updated_at !== "string" ||
+    !isConversationTitleStatus(o.title_status)
+  ) {
+    return undefined;
+  }
+  return {
+    id: o.id,
+    title: o.title,
+    title_status: o.title_status,
+    updated_at: o.updated_at,
+  };
+}
+
+function coerceAssistantEncouragement(raw: unknown): ChatMessage["encouragement"] | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "object") {
+    return raw as ChatMessage["encouragement"];
+  }
+  return undefined;
+}
+
 /**
  * Send message to AI through secure Edge Function
  * 
  * @param request - Chat request with conversation context
- * @returns Promise<{message: ChatMessage, conversation?: {title_updated: boolean, title?: string}}> - The AI response with conversation updates
+ * @returns AI assistant message plus optional conversation snapshot (title sync)
  * @throws Error - If authentication fails, rate limits exceeded, or service unavailable
  */
 export async function postAiEncouragement(request: AiChatRequest): Promise<{
   message: ChatMessage;
-  conversation?: { title_updated: boolean; title?: string };
+  conversation?: AiChatConversationPayload;
 }> {
   try {
     // Check if user is authenticated with Supabase
@@ -103,10 +150,11 @@ export async function postAiEncouragement(request: AiChatRequest): Promise<{
 
     console.log('Encouragement data received:', data.message.encouragement);
 
-    // Handle title updates if returned
-    if (data.conversation?.title_updated) {
-      console.log('Conversation title updated to:', data.conversation.title);
+    if (data.conversation?.title) {
+      console.log("Conversation snapshot from AI:", data.conversation.title, data.conversation.title_status);
     }
+
+    const conversation = parseAiChatConversationPayload(data.conversation);
 
     // Transform the response to match your ChatMessage type
     return {
@@ -115,11 +163,11 @@ export async function postAiEncouragement(request: AiChatRequest): Promise<{
         conversation_id: data.message.conversation_id,
         role: data.message.role,
         content: data.message.content,
-        encouragement: data.message.encouragement, // Include the encouragement JSON data
+        encouragement: coerceAssistantEncouragement(data.message.encouragement),
         created_at: data.message.created_at,
         user_id: data.message.user_id // Both user and assistant messages have user_id in your schema
       },
-      conversation: data.conversation
+      conversation,
     };
 
   } catch (error) {

@@ -7,6 +7,7 @@ export interface ConversationRow {
   id: string;
   user_id: string;
   title: string;
+  title_status: 'pending' | 'generated' | 'locked' | 'user_edited';
   created_at: string;
   updated_at: string;
 }
@@ -40,6 +41,7 @@ export function transformConversation(
     id: conversationRow.id,
     user_id: conversationRow.user_id,
     title: conversationRow.title,
+    title_status: conversationRow.title_status || 'pending',
     created_at: conversationRow.created_at,
     updated_at: conversationRow.updated_at,
     last_message,
