@@ -598,7 +598,7 @@ Deno.serve(async (req) => {
       throw new Error("Failed to validate rate limit")
     }
 
-    if ((count ?? 0) >= 10) {
+    if ((count ?? 0) > 10) {
       throw new Error("Rate limit exceeded. Please wait before sending more messages.")
     }
 
@@ -611,22 +611,8 @@ Deno.serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    // Store user message first
-    const { data: userMessage, error: userMessageError } = await serviceClient
-      .from('chat_messages')
-      .insert({
-        conversation_id: conversationId,
-        role: 'user',
-        content: message,
-        user_id: user.id,
-      })
-      .select('id')
-      .single();
-
-    if (userMessageError) {
-      console.error('Failed to store user message:', userMessageError);
-      throw new Error('Failed to store message');
-    }
+    // The client persists the user message before calling this function.
+    // This function should only generate and store the assistant response.
 
     // Check if this is the first user message and generate title if needed
     const { count: userMessageCount } = await serviceClient

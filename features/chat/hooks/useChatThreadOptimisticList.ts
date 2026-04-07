@@ -1,39 +1,24 @@
-import { deduplicateMessages, sortMessagesByDate } from "@/features/chat/utils/messageHelpers";
+import {
+  deduplicateMessages,
+  sortMessagesByDate,
+} from "@/features/chat/utils/messageHelpers";
 import type { ChatMessage } from "@/types";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 /**
- * Merges realtime server messages with optimistic rows and prunes confirmed optimistics.
- * Extracted from thread state hook (SKILL.md Rule 9 — compose, don’t bloat).
+ * Smart message merge that prioritizes optimistic messages for immediate UI feedback
+ * while ensuring proper chronological order. Follows SKILL.md Rule 21 (DRY) - 
+ * extracted from thread state hook to eliminate duplicate merge logic.
  */
 export function useChatThreadOptimisticList(serverMessages: ChatMessage[] | null | undefined) {
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
 
   const messages = useMemo(() => {
-    const all = [...(serverMessages ?? []), ...optimisticMessages];
-    return deduplicateMessages(sortMessagesByDate(all));
-  }, [serverMessages, optimisticMessages]);
-
-  useEffect(() => {
-    if (!serverMessages?.length) return;
-
-    setOptimisticMessages((prev) =>
-      prev.filter((optimistic) => {
-        if (
-          optimistic.status === "loading" ||
-          optimistic.status === "sending" ||
-          optimistic.status === "failed"
-        ) {
-          return true;
-        }
-        const hasServerVersion = serverMessages.some(
-          (server) =>
-            server.content.trim() === optimistic.content.trim() && server.role === optimistic.role
-        );
-        return !hasServerVersion;
-      })
-    );
-  }, [serverMessages]);
+    // Keep optimistic rows first so placeholder ordering stays stable during realtime updates.
+    const all = [...optimisticMessages, ...(serverMessages ?? [])];
+    const sorted = sortMessagesByDate(all);
+    return deduplicateMessages(sorted);
+  }, [optimisticMessages, serverMessages]);
 
   return { optimisticMessages, setOptimisticMessages, messages };
 }

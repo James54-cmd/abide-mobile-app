@@ -4,6 +4,7 @@ import {
   createOptimisticUserMessage,
   isDuplicateSendInProgress,
   replacePlaceholderMessage,
+  replaceOptimisticMessage,
   updateMessageStatus,
 } from "@/features/chat/utils/messageHelpers";
 import { useSendMessage } from "@/lib/api/chat/hooks";
@@ -98,16 +99,13 @@ export function useChatThreadSend({
       }
 
       setOptimisticMessages((prev) =>
-        updateMessageStatus(prev, optimisticUserMsg!.localId!, "sent")
+        replaceOptimisticMessage(prev, optimisticUserMsg!.localId!, userResult.message!)
       );
 
-      const serverUser = userResult.message!;
-      assistantPlaceholder = createAssistantPlaceholder(conversationId, userId, {
-        afterUserTimestamps: [optimisticUserMsg.created_at, serverUser.created_at],
-      });
+      assistantPlaceholder = createAssistantPlaceholder(conversationId, userId);
       setOptimisticMessages((prev) => [...prev, assistantPlaceholder!]);
 
-      const currentMessages = [...(serverMessages ?? []), serverUser];
+      const currentMessages = [...(serverMessages ?? []), userResult.message!];
       const aiResult = await sendForEncouragement(conversationId, trimmed, currentMessages);
 
       if (aiResult.error) {

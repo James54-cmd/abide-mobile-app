@@ -26,34 +26,15 @@ export function createOptimisticUserMessage(
   };
 }
 
-export type AssistantPlaceholderOptions = {
-  /**
-   * ISO timestamps for the user message(s) this reply follows.
-   * Placeholder `created_at` is set strictly after the latest of these so sort order stays
-   * correct when the server row has a newer time than the client clock (reflecting never jumps above the user).
-   */
-  afterUserTimestamps?: string[];
-};
-
 /**
  * Creates an assistant placeholder message for loading state
  */
 export function createAssistantPlaceholder(
   conversationId: string,
-  userId: string,
-  options?: AssistantPlaceholderOptions
+  userId: string
 ): ChatMessage {
   const localId = `assistant-loading-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-  let createdMs = Date.now();
-  const stamps = options?.afterUserTimestamps?.filter(Boolean) ?? [];
-  if (stamps.length > 0) {
-    const parsed = stamps.map((iso) => Date.parse(iso)).filter((n) => Number.isFinite(n));
-    if (parsed.length > 0) {
-      createdMs = Math.max(...parsed) + 50;
-    }
-  }
-
+  
   return {
     id: localId,
     localId,
@@ -61,7 +42,7 @@ export function createAssistantPlaceholder(
     user_id: userId,
     role: "assistant",
     content: "",
-    created_at: new Date(createdMs).toISOString(),
+    created_at: new Date().toISOString(),
     status: "loading",
     isPlaceholder: true,
   };
@@ -159,67 +140,71 @@ export function getMessageKey(message: ChatMessage): string {
 }
 
 /**
- * Deduplicates messages to prevent showing the same content twice
- * Prioritizes server messages over optimistic messages when content matches
+ * Replaces an optimistic message with the server version once persistence succeeds.
  */
-function dedupeContentKey(message: ChatMessage): string {
-  if (
-    message.role === "assistant" &&
-    message.content.trim() === "" &&
-    message.isPlaceholder &&
-    message.localId
-  ) {
-    return `assistant-ph-${message.localId}-${message.conversation_id}`;
-  }
-  return `${message.role}-${message.content.trim()}-${message.conversation_id}`;
+export function replaceOptimisticMessage(
+  messages: ChatMessage[],
+  optimisticId: string,
+  serverMessage: ChatMessage
+): ChatMessage[] {
+  return messages.map((msg) => {
+    const matches = msg.localId === optimisticId || msg.id === optimisticId;
+    if (!matches) return msg;
+
+    return {
+      ...serverMessage,
+      status: "sent",
+      isPlaceholder: false,
+    };
+  });
 }
 
+/**
+ * Deduplicates only true identity collisions.
+ * This avoids collapsing separate messages that happen to share the same text.
+ */
 export function deduplicateMessages(messages: ChatMessage[]): ChatMessage[] {
-  const seen = new Map<string, ChatMessage>();
-  
-  // Process in reverse order so server messages (later in array) override optimistic ones
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    
-    const contentKey = dedupeContentKey(message);
-    
-    // If we haven't seen this content, or current message is from server, keep it
-    if (!seen.has(contentKey) || (!message.localId && seen.get(contentKey)?.localId)) {
-      seen.set(contentKey, message);
+  const seen = new Set<string>();
+
+  return messages.filter((message) => {
+    const key = getMessageIdentityKey(message);
+    if (seen.has(key)) {
+      return false;
     }
-  }
-  
-  // Return deduplicated messages in original order
-  const deduplicated: ChatMessage[] = [];
-  for (const message of messages) {
-    const contentKey = dedupeContentKey(message);
-    if (seen.get(contentKey) === message) {
-      deduplicated.push(message);
-    }
-  }
-  
-  return deduplicated;
+
+    seen.add(key);
+    return true;
+  });
 }
 
 /**
- * Sorts messages by creation date (ascending - oldest first)
- * Ensures consistent ordering even if server returns unsorted data
- */
-const ROLE_SORT = (role: ChatMessage["role"]): number =>
-  role === "user" ? 0 : role === "assistant" ? 1 : 2;
-
-/**
- * Oldest first; same instant → user before assistant so “reflecting” never sits above its user turn.
+ * Smart chronological sorting that handles optimistic messages gracefully.
+ * Ensures loading placeholders maintain proper conversation flow even during
+ * realtime updates. Follows SKILL.md Rule 21 (DRY) - centralized sort logic.
  */
 export function sortMessagesByDate(messages: ChatMessage[]): ChatMessage[] {
   return [...messages].sort((a, b) => {
-    const ta = new Date(a.created_at).getTime();
-    const tb = new Date(b.created_at).getTime();
-    if (ta !== tb) return ta - tb;
-    const ra = ROLE_SORT(a.role) - ROLE_SORT(b.role);
-    if (ra !== 0) return ra;
-    return String(a.localId ?? a.id).localeCompare(String(b.localId ?? b.id));
+    const timeA = new Date(a.created_at).getTime();
+    const timeB = new Date(b.created_at).getTime();
+    
+    // If times are very close (within 1 second), preserve optimistic message order
+    // This prevents assistant placeholders from jumping above user messages during send
+    if (Math.abs(timeA - timeB) < 1000) {
+      // Preserve user -> assistant sequence during optimistic updates
+      if (a.role === "user" && b.role === "assistant" && b.status === "loading") {
+        return -1; // User message comes first
+      }
+      if (a.role === "assistant" && a.status === "loading" && b.role === "user") {
+        return 1; // User message comes first
+      }
+    }
+    
+    return timeA - timeB;
   });
+}
+
+function getMessageIdentityKey(message: ChatMessage): string {
+  return `server:${String(message.id)}`;
 }
 
 /**
