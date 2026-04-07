@@ -3,7 +3,7 @@ import { useHomeScreenState } from "@/features/home/hooks/useHomeScreenState";
 import type { DevotionalModuleKind, HomeScreenProps } from "@/features/home/types";
 import { Feather } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type FeatherName = ComponentProps<typeof Feather>["name"];
@@ -35,12 +35,21 @@ export function HomeScreenView({
   calendarLinkLabel,
   onCalendarPress,
   onCommunityPress,
+  quoteImage,
+  quoteText,
+  quoteAuthor,
+  quoteSourceLabel,
+  quoteTheme,
+  quoteCompleted,
+  onQuoteCompletePress,
   dateLabel,
   dailyTopicTitle,
   dailySectionLabel,
+  isFavorite,
   onFavoritePress,
   modules,
   onModulePress,
+  onToggleModuleComplete,
   onPassageListen,
   onPassageRead,
   onPrimaryPromptPress,
@@ -117,6 +126,46 @@ export function HomeScreenView({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <ImageBackground source={quoteImage} imageStyle={styles.quoteHeroImage} style={styles.quoteHero}>
+          <View style={styles.quoteOverlay} />
+          <View style={styles.quoteHeroContent}>
+            <View style={styles.quoteTopRow}>
+              <View style={styles.quoteLabelPill}>
+                <Text style={styles.quoteLabelText}>{quoteSourceLabel}</Text>
+              </View>
+              <Pressable
+                onPress={onQuoteCompletePress}
+                accessibilityRole="button"
+                accessibilityLabel={quoteCompleted ? "Mark quote as not done" : "Mark quote as done"}
+                style={[
+                  styles.quoteCheckButton,
+                  quoteCompleted && styles.quoteCheckButtonActive,
+                ]}
+              >
+                <Feather
+                  name={quoteCompleted ? "check" : "circle"}
+                  size={16}
+                  color={quoteCompleted ? colors.ink : colors.white}
+                />
+                <Text
+                  style={[
+                    styles.quoteCheckText,
+                    quoteCompleted && styles.quoteCheckTextActive,
+                  ]}
+                >
+                  {quoteCompleted ? "Done" : "Mark done"}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View>
+              <Text style={styles.quoteTheme}>{quoteTheme}</Text>
+              <Text style={styles.quoteText}>"{quoteText}"</Text>
+              <Text style={styles.quoteAuthor}>- {quoteAuthor}</Text>
+            </View>
+          </View>
+        </ImageBackground>
+
         <View style={styles.sheet}>
           <View style={styles.sheetHeader}>
             <View style={styles.sheetHeaderLeft}>
@@ -127,10 +176,15 @@ export function HomeScreenView({
             <Pressable
               onPress={onFavoritePress}
               accessibilityRole="button"
-              accessibilityLabel="Favorite or save"
+              accessibilityLabel={isFavorite ? "Remove from favorites" : "Favorite or save"}
               hitSlop={10}
+              style={styles.favoriteButton}
             >
-              <Feather name="heart" size={22} color={colors.muted} />
+              <Feather
+                name={isFavorite ? "heart" : "heart"}
+                size={22}
+                color={isFavorite ? colors.gold : colors.muted}
+              />
             </Pressable>
           </View>
 
@@ -142,37 +196,44 @@ export function HomeScreenView({
               >
                 <View style={styles.moduleAccent} />
                 <View style={styles.moduleInner}>
-                  <Pressable
-                    onPress={() => onModulePress?.(m.id, m.kind)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${m.title}${m.durationMinutes != null ? `, ${m.durationMinutes} minutes` : ""}`}
-                  >
-                    <View style={styles.moduleRow}>
-                      <View style={styles.moduleIconWrap}>
-                        <Feather name={moduleIcon(m.kind)} size={18} color={colors.gold} />
-                      </View>
-                      <Text
-                        style={[
-                          styles.moduleTitle,
-                          m.kind === "passage" && styles.moduleTitleAccent,
-                        ]}
-                      >
-                        {m.title}
-                      </Text>
-                      {m.durationMinutes != null ? (
-                        <Text style={styles.moduleMeta}>{m.durationMinutes} min</Text>
-                      ) : (
-                        <View style={styles.moduleMetaSpacer} />
-                      )}
-                      {m.completed ? (
-                        <View style={styles.doneBadge}>
-                          <Feather name="check" size={14} color={colors.white} />
-                        </View>
-                      ) : (
-                        <Feather name="chevron-right" size={16} color={colors.muted} style={{ opacity: 0.45 }} />
-                      )}
+                  <View style={styles.moduleRow}>
+                    <View style={styles.moduleIconWrap}>
+                      <Feather name={moduleIcon(m.kind)} size={18} color={colors.gold} />
                     </View>
-                  </Pressable>
+                    <Text
+                      style={[
+                        styles.moduleTitle,
+                        m.kind === "passage" && styles.moduleTitleAccent,
+                      ]}
+                    >
+                      {m.title}
+                    </Text>
+                    {m.durationMinutes != null ? (
+                      <Text style={styles.moduleMeta}>{m.durationMinutes} min</Text>
+                    ) : (
+                      <View style={styles.moduleMetaSpacer} />
+                    )}
+                    <Pressable
+                      onPress={() => onToggleModuleComplete?.(m.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        m.completed ? `Mark ${m.title} as not done` : `Mark ${m.title} as done`
+                      }
+                      style={[
+                        styles.moduleCheckButton,
+                        m.completed && styles.moduleCheckButtonActive,
+                      ]}
+                    >
+                      <Feather
+                        name={m.completed ? "check" : "circle"}
+                        size={15}
+                        color={m.completed ? colors.white : colors.muted}
+                      />
+                    </Pressable>
+                  </View>
+
+                  {m.summary ? <Text style={styles.moduleSummary}>{m.summary}</Text> : null}
+                  {m.body ? <Text style={styles.moduleBody}>{m.body}</Text> : null}
 
                   {m.kind === "passage" && m.passageReference ? (
                     <View style={styles.passageBody}>
@@ -196,6 +257,15 @@ export function HomeScreenView({
                         </Pressable>
                       </View>
                     </View>
+                  ) : m.actionLabel ? (
+                    <Pressable
+                      style={styles.moduleActionPill}
+                      onPress={() => onModulePress?.(m.id, m.kind)}
+                      accessibilityRole="button"
+                      accessibilityLabel={m.actionLabel}
+                    >
+                      <Text style={styles.moduleActionText}>{m.actionLabel}</Text>
+                    </Pressable>
                   ) : null}
                 </View>
               </View>
@@ -280,6 +350,90 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
     flexGrow: 1,
+  },
+  quoteHero: {
+    minHeight: 240,
+    borderRadius: 24,
+    overflow: "hidden",
+    marginBottom: 18,
+    justifyContent: "flex-end",
+    backgroundColor: colors.darkBg,
+  },
+  quoteHeroImage: {
+    resizeMode: "cover",
+  },
+  quoteOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(28,20,12,0.46)",
+  },
+  quoteHeroContent: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 20,
+    gap: 20,
+  },
+  quoteTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  quoteLabelPill: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: "rgba(250,247,242,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+  quoteLabelText: {
+    fontFamily: "sans-medium",
+    fontSize: 10,
+    letterSpacing: 1.3,
+    color: colors.white,
+  },
+  quoteCheckButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+  quoteCheckButtonActive: {
+    backgroundColor: colors.gold,
+    borderColor: colors.gold,
+  },
+  quoteCheckText: {
+    fontFamily: "sans-medium",
+    fontSize: 12,
+    color: colors.white,
+  },
+  quoteCheckTextActive: {
+    color: colors.ink,
+  },
+  quoteTheme: {
+    fontFamily: "sans-medium",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.78)",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+    textTransform: "uppercase",
+  },
+  quoteText: {
+    fontFamily: "serif",
+    fontSize: 28,
+    lineHeight: 36,
+    color: colors.white,
+    marginBottom: 12,
+  },
+  quoteAuthor: {
+    fontFamily: "sans-medium",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.88)",
   },
 
   topBar: {
@@ -408,6 +562,14 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 12,
   },
+  favoriteButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(201,151,58,0.08)",
+  },
   dateLabel: {
     fontFamily: "sans-medium",
     fontSize: 12,
@@ -484,6 +646,20 @@ const styles = StyleSheet.create({
   moduleMetaSpacer: {
     width: 36,
   },
+  moduleCheckButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(140,123,106,0.28)",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.cream,
+  },
+  moduleCheckButtonActive: {
+    backgroundColor: colors.teal,
+    borderColor: colors.teal,
+  },
   doneBadge: {
     width: 24,
     height: 24,
@@ -494,10 +670,24 @@ const styles = StyleSheet.create({
   },
 
   passageBody: {
-    marginTop: 14,
+    marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "rgba(140,123,106,0.15)",
+  },
+  moduleSummary: {
+    marginTop: 14,
+    fontFamily: "sans-medium",
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.ink,
+  },
+  moduleBody: {
+    marginTop: 8,
+    fontFamily: "sans",
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.muted,
   },
   passageRef: {
     fontFamily: "serif",
@@ -509,6 +699,19 @@ const styles = StyleSheet.create({
   passageActions: {
     flexDirection: "row",
     gap: 10,
+  },
+  moduleActionPill: {
+    alignSelf: "flex-start",
+    marginTop: 16,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    backgroundColor: "rgba(201,151,58,0.12)",
+  },
+  moduleActionText: {
+    fontFamily: "sans-medium",
+    fontSize: 13,
+    color: colors.ink,
   },
   pillDark: {
     flex: 1,

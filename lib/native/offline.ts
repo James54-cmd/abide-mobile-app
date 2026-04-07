@@ -5,6 +5,8 @@ const CHAT_QUEUE_KEY = `${PREFIX}:chat_queue`;
 
 export const offlineKeys = {
   verseOfDay: `${PREFIX}:verse_of_day`,
+  dailyDevotionProgress: `${PREFIX}:daily_devotion_progress`,
+  streakState: `${PREFIX}:streak_state`,
   bible: (book: string, chapter: number, translation: string) =>
     `${PREFIX}:bible_${book}_${chapter}_${translation}`
 };
