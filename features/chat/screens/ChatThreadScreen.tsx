@@ -39,31 +39,12 @@ export function ChatThreadScreen({ conversationId }: Props) {
   // Track previous message count for smart auto-scroll
   const previousMessageCount = useRef(state.messages.length);
 
-  // Derive title from conversation data or fallback to first message
+  // Header uses stored conversation title only (server generates after first send; no client-side preview).
   const title = useMemo(() => {
-    // Use conversation title if available and not placeholder
-    if (state.conversation?.title && state.conversation.title !== 'New Conversation') {
-      return state.conversation.title;
-    }
-    
-    // Special handling for "New Conversation" placeholder during first message flow
-    if (state.conversation?.title === 'New Conversation' && state.messages.length > 0) {
-      const firstUserMessage = state.messages.find(msg => msg.role === "user");
-      if (firstUserMessage) {
-        const derivedTitle = firstUserMessage.content.trim().slice(0, 30);
-        return derivedTitle.length < firstUserMessage.content.trim().length 
-          ? `${derivedTitle}...` 
-          : derivedTitle;
-      }
-    }
-    
-    // Final fallbacks
-    if (state.messages.length === 0) {
-      return "New conversation";
-    }
-    
-    return "Conversation";
-  }, [state.conversation?.title, state.messages.length, state.messages]);
+    const t = state.conversation?.title?.trim();
+    if (t && t !== "New Conversation") return t;
+    return "New conversation";
+  }, [state.conversation?.title]);
 
   // Memoized render function to prevent unnecessary rerenders
   const renderMessage: ListRenderItem<ChatMessage> = useCallback(({ item: message }) => {

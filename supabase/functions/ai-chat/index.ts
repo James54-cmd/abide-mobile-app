@@ -20,20 +20,16 @@ type BibleCharacter = {
   connection: string;
 };
 
-type EncouragementResponse = {
-  intro: string;
-  character?: BibleCharacter;
-  verses: Array<{ reference: string; text: string }>;
-  closing: string;
-};
 
-// Smart title generation system
-type TitleStatus = 'pending' | 'generated' | 'locked' | 'user_edited';
+
+// Smart title generation — extractive first (user’s words), then themes, then trimmed raw text.
+const MAX_CONVERSATION_TITLE_LEN = 56;
+
 
 function shouldRefineTitle(title: string): boolean {
   const weakTitles = new Set([
     "Check This",
-    "Need Help", 
+    "Need Help",
     "Question",
     "Hello",
     "Hi",
@@ -42,113 +38,65 @@ function shouldRefineTitle(title: string): boolean {
     "Untitled",
     "Help Me",
     "Can You",
-    "Please Help"
+    "Please Help",
+    "Conversation",
+    "New conversation",
   ]);
 
   const normalizedTitle = title.trim();
   return weakTitles.has(normalizedTitle) || normalizedTitle.length < 10;
 }
 
-function generateTitleFromMessage(message: string): string {
-  const text = normalizeMessage(message);
-
-  // Enhanced contextual patterns for Abide app
-  const patterns = [
-    // Spiritual & Faith
-    {
-      test: /pray|prayer|praying|intercede|petition|supplication/i,
-      title: "Prayer Request"
-    },
-    {
-      test: /bible|scripture|verse|psalm|gospel|genesis|revelation|matthew|john|romans/i,
-      title: "Bible Study"
-    },
-    {
-      test: /faith|believe|trust|doubt|spiritual|soul|testimony/i,
-      title: "Faith Journey"
-    },
-    {
-      test: /sin|forgive|repent|grace|mercy|salvation|redemption/i,
-      title: "Seeking Forgiveness"
-    },
-    {
-      test: /worship|praise|thanksgiving|grateful|blessed/i,
-      title: "Praise & Worship"
-    },
-    {
-      test: /anxiety|worry|fear|stress|overwhelmed|burden/i,
-      title: "Finding Peace"
-    },
-    {
-      test: /depression|sad|lonely|empty|hopeless/i,
-      title: "Seeking Hope"
-    },
-    {
-      test: /relationship|marriage|dating|family|children|parent/i,
-      title: "Relationship Guidance"
-    },
-    {
-      test: /work|job|career|purpose|calling|ministry/i,
-      title: "Life Purpose"
-    },
-    {
-      test: /temptation|struggle|addiction|habit/i,
-      title: "Overcoming Struggles"
-    },
-    {
-      test: /healing|health|sick|disease|pain/i,
-      title: "Prayer for Healing"
-    },
-    {
-      test: /decision|choice|guidance|direction|wisdom/i,
-      title: "Seeking Wisdom"
-    },
-    // Life circumstances  
-    {
-      test: /money|financial|debt|poor|rich|wealth/i,
-      title: "Financial Wisdom"
-    },
-    {
-      test: /death|grief|loss|mourning|funeral/i,
-      title: "Comfort in Loss"
-    },
-    {
-      test: /church|pastor|fellowship|community|denomination/i,
-      title: "Church Life"
-    },
-    // General help patterns (fallback)
-    {
-      test: /help|advice|guidance|support/i,
-      title: "Seeking Guidance"
-    },
-    {
-      test: /question|wondering|curious|understand/i,
-      title: "Faith Questions"
-    }
-  ];
-
-  // Try pattern matching with spiritual context
-  for (const rule of patterns) {
-    if (rule.test.test(text)) {
-      return rule.title;
-    }
-  }
-
-  // Enhanced semantic extraction for better titles
-  return generateSmartTitle(text);
+function normalizeMessage(message: string): string {
+  return message.trim().replace(/\s+/g, " ");
 }
 
-function generateSmartTitle(text: string): string {
-  // Clean and normalize
+function collapseWhitespace(s: string): string {
+  return s.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function toTitleCaseWords(s: string): string {
+  return collapseWhitespace(s)
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/** Truncate on a word boundary; add ellipsis when shortened. */
+function truncateForTitle(raw: string, maxLen: number): string {
+  const oneLine = collapseWhitespace(raw);
+  if (oneLine.length <= maxLen) return toTitleCaseWords(oneLine);
+  const slice = oneLine.slice(0, maxLen - 1);
+  const lastSpace = slice.lastIndexOf(" ");
+  const base = lastSpace > maxLen * 0.35 ? slice.slice(0, lastSpace) : slice.trimEnd();
+  return `${toTitleCaseWords(base)}…`;
+}
+
+function clampTitleLength(s: string, max = MAX_CONVERSATION_TITLE_LEN): string {
+  const t = collapseWhitespace(s);
+  if (t.length <= max) return t;
+  return truncateForTitle(t, max);
+}
+
+const GREETING_ONLY = /^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)\.?$/i;
+
+function isWeakExtractiveTitle(s: string): boolean {
+  const t = collapseWhitespace(s).toLowerCase();
+  if (t.length < 4) return true;
+  if (GREETING_ONLY.test(t)) return true;
+  return false;
+}
+
+function extractTitleFromKeywords(text: string): string {
   const cleaned = text
-    .replace(/[^\w\s]/g, " ")
+    .replace(/[^\p{L}\p{N}\s']/gu, " ")
     .replace(/\s+/g, " ")
     .toLowerCase()
     .trim();
 
   const words = cleaned.split(" ").filter(Boolean);
-  
-  // Enhanced stop words for better extraction
+
   const stopWords = new Set([
     "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours",
     "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself",
@@ -161,36 +109,66 @@ function generateSmartTitle(text: string): string {
     "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more",
     "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so",
     "than", "too", "very", "can", "will", "just", "should", "now", "could", "would",
-    "hello", "hi", "hey", "please", "thank", "thanks"
+    "hello", "hi", "hey", "please", "thank", "thanks", "im", "ive", "dont", "cant", "wont",
   ]);
 
-  // Filter meaningful words
-  const meaningful = words.filter(word => 
-    !stopWords.has(word) && 
-    word.length > 2
-  );
+  const meaningful = words.filter((w) => !stopWords.has(w) && w.length > 1);
+  if (meaningful.length === 0) return "";
 
-  if (meaningful.length === 0) {
-    return "New Conversation";
+  const titleWords = meaningful.slice(0, 5);
+  return toTitleCaseWords(titleWords.join(" "));
+}
+
+function themePatterns(): Array<{ test: RegExp; title: string }> {
+  return [
+    { test: /pray|prayer|praying|intercede|petition|supplication/i, title: "Prayer request" },
+    { test: /bible|scripture|verse|psalm|gospel|genesis|revelation|matthew|john|romans/i, title: "Bible & scripture" },
+    { test: /faith|believe|trust|doubt|spiritual|soul|testimony/i, title: "Faith & trust" },
+    { test: /sin|forgive|repent|grace|mercy|salvation|redemption/i, title: "Forgiveness & grace" },
+    { test: /worship|praise|thanksgiving|grateful|blessed/i, title: "Praise & thanks" },
+    { test: /anxiety|worry|fear|stress|overwhelmed|burden|panic/i, title: "Anxiety & peace" },
+    { test: /depression|sad|lonely|empty|hopeless/i, title: "Hope & comfort" },
+    { test: /relationship|marriage|dating|family|children|parent|spouse/i, title: "Relationships & family" },
+    { test: /work|job|career|purpose|calling|ministry/i, title: "Work & calling" },
+    { test: /temptation|struggle|addiction|habit/i, title: "Struggles & habits" },
+    { test: /healing|health|sick|disease|pain|hospital/i, title: "Healing & health" },
+    { test: /decision|choice|guidance|direction|wisdom|discern/i, title: "Wisdom & decisions" },
+    { test: /money|financial|debt|bills|budget|wealth/i, title: "Money & stewardship" },
+    { test: /death|grief|loss|mourning|funeral/i, title: "Grief & loss" },
+    { test: /church|pastor|fellowship|community|denomination/i, title: "Church & community" },
+    { test: /question|wondering|curious|understand|mean/i, title: "Faith questions" },
+    { test: /help|advice|guidance|support|struggling/i, title: "Seeking support" },
+  ];
+}
+
+/**
+ * Build a short chat title: prefer user’s own words, then theme label, then clipped raw text.
+ * `message` may contain two user turns separated by newline when refining on 2nd message.
+ */
+function generateTitleFromMessage(message: string): string {
+  const raw = collapseWhitespace(message);
+  const text = normalizeMessage(message);
+
+  const fromKeywords = extractTitleFromKeywords(text);
+  if (fromKeywords && !isWeakExtractiveTitle(fromKeywords)) {
+    return clampTitleLength(fromKeywords);
   }
 
-  // Take first 2-3 meaningful words and create natural title
-  const titleWords = meaningful.slice(0, 3);
-  const title = titleWords.join(" ");
-  
-  // Capitalize first letter of each word for better readability
-  return title
-    .split(" ")
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
+  for (const rule of themePatterns()) {
+    if (rule.test.test(text)) {
+      return clampTitleLength(rule.title);
+    }
+  }
 
-function normalizeMessage(message: string): string {
-  return message.trim().replace(/\s+/g, " ");
-}
+  if (fromKeywords) {
+    return clampTitleLength(fromKeywords);
+  }
 
-function toTitleCase(input: string): string {
-  return input.replace(/\b\w/g, c => c.toUpperCase());
+  if (raw.length > 0) {
+    return clampTitleLength(truncateForTitle(raw, MAX_CONVERSATION_TITLE_LEN));
+  }
+
+  return "New Conversation";
 }
 
 // Enhanced response system with contextual awareness
@@ -694,7 +672,25 @@ Deno.serve(async (req) => {
 
       // Generate and update title if needed
       if (shouldGenerateTitle) {
-        const newTitle = generateTitleFromMessage(message);
+        let titleInput = message;
+        if ((userMessageCount || 0) === 2) {
+          const { data: userRows } = await serviceClient
+            .from("chat_messages")
+            .select("content")
+            .eq("conversation_id", conversationId)
+            .eq("role", "user")
+            .order("created_at", { ascending: true })
+            .limit(2);
+          if (
+            userRows &&
+            userRows.length >= 2 &&
+            typeof userRows[0].content === "string" &&
+            typeof userRows[1].content === "string"
+          ) {
+            titleInput = `${userRows[0].content}\n${userRows[1].content}`;
+          }
+        }
+        const newTitle = generateTitleFromMessage(titleInput);
         generatedConversationTitle = newTitle;
         generatedTitleStatus = 'generated';
         console.log(`Generating title for conversation ${conversationId}: "${newTitle}"`);
