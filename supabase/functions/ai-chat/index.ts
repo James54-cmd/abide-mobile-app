@@ -52,95 +52,137 @@ function shouldRefineTitle(title: string): boolean {
 function generateTitleFromMessage(message: string): string {
   const text = normalizeMessage(message);
 
-  // Intent-based pattern matching for common topics
+  // Enhanced contextual patterns for Abide app
   const patterns = [
+    // Spiritual & Faith
     {
-      test: /supabase|jwt|401|403|auth|authentication|login|signin/i,
-      title: "Fix Supabase Auth Error"
+      test: /pray|prayer|praying|intercede|petition|supplication/i,
+      title: "Prayer Request"
     },
     {
-      test: /react[\s-]?native|expo|mobile app|ios|android/i,
-      title: "React Native App Issue"
+      test: /bible|scripture|verse|psalm|gospel|genesis|revelation|matthew|john|romans/i,
+      title: "Bible Study"
     },
     {
-      test: /openai|gpt|ai|chatgpt|artificial intelligence/i,
-      title: "OpenAI Integration Help"
+      test: /faith|believe|trust|doubt|spiritual|soul|testimony/i,
+      title: "Faith Journey"
     },
     {
-      test: /laravel|php|employee|notification|backend/i,
-      title: "Laravel Backend Issue"
+      test: /sin|forgive|repent|grace|mercy|salvation|redemption/i,
+      title: "Seeking Forgiveness"
     },
     {
-      test: /bible|scripture|verse|faith|prayer|spiritual/i,
-      title: "Biblical Guidance"
+      test: /worship|praise|thanksgiving|grateful|blessed/i,
+      title: "Praise & Worship"
     },
     {
-      test: /database|sql|postgres|mysql|query/i,
-      title: "Database Query Help"
+      test: /anxiety|worry|fear|stress|overwhelmed|burden/i,
+      title: "Finding Peace"
     },
     {
-      test: /deploy|deployment|production|server|hosting/i,
-      title: "Deployment Issue"
+      test: /depression|sad|lonely|empty|hopeless/i,
+      title: "Seeking Hope"
     },
     {
-      test: /error|bug|fix|broken|not working/i,
-      title: "Fix Code Error"
+      test: /relationship|marriage|dating|family|children|parent/i,
+      title: "Relationship Guidance"
     },
     {
-      test: /setup|install|configuration|config/i,
-      title: "Setup Configuration"
+      test: /work|job|career|purpose|calling|ministry/i,
+      title: "Life Purpose"
     },
     {
-      test: /design|ui|ux|frontend|styling|css/i,
-      title: "UI Design Help"
+      test: /temptation|struggle|addiction|habit/i,
+      title: "Overcoming Struggles"
+    },
+    {
+      test: /healing|health|sick|disease|pain/i,
+      title: "Prayer for Healing"
+    },
+    {
+      test: /decision|choice|guidance|direction|wisdom/i,
+      title: "Seeking Wisdom"
+    },
+    // Life circumstances  
+    {
+      test: /money|financial|debt|poor|rich|wealth/i,
+      title: "Financial Wisdom"
+    },
+    {
+      test: /death|grief|loss|mourning|funeral/i,
+      title: "Comfort in Loss"
+    },
+    {
+      test: /church|pastor|fellowship|community|denomination/i,
+      title: "Church Life"
+    },
+    // General help patterns (fallback)
+    {
+      test: /help|advice|guidance|support/i,
+      title: "Seeking Guidance"
+    },
+    {
+      test: /question|wondering|curious|understand/i,
+      title: "Faith Questions"
     }
   ];
 
-  // Try pattern matching first
+  // Try pattern matching with spiritual context
   for (const rule of patterns) {
     if (rule.test.test(text)) {
       return rule.title;
     }
   }
 
-  // Fallback to semantic extraction
-  return fallbackSemanticTitle(text);
+  // Enhanced semantic extraction for better titles
+  return generateSmartTitle(text);
 }
 
-function fallbackSemanticTitle(text: string): string {
-  // Clean and normalize the text
+function generateSmartTitle(text: string): string {
+  // Clean and normalize
   const cleaned = text
-    .replace(/[^\w\s-]/g, " ") // Replace special chars with spaces
-    .replace(/\s+/g, " ") // Normalize whitespace
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
     .trim();
 
   const words = cleaned.split(" ").filter(Boolean);
-
-  // Remove common stop words
+  
+  // Enhanced stop words for better extraction
   const stopWords = new Set([
-    "i", "am", "is", "are", "the", "a", "an", "and", "or", "but",
-    "can", "you", "please", "help", "with", "this", "that", "my", 
-    "to", "for", "in", "on", "of", "at", "by", "from", "me", "we",
-    "have", "has", "had", "do", "does", "did", "will", "would",
-    "could", "should", "may", "might", "must", "shall", "using",
-    "get", "getting", "make", "making", "want", "need", "trying",
-    "trying", "how", "what", "when", "where", "why", "who"
+    "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours",
+    "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself",
+    "it", "its", "itself", "they", "them", "their", "theirs", "themselves", "what", "which",
+    "who", "whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be",
+    "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an",
+    "the", "and", "but", "if", "or", "because", "as", "until", "while", "of", "at", "by",
+    "for", "with", "through", "during", "before", "after", "above", "below", "up", "down",
+    "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here",
+    "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more",
+    "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so",
+    "than", "too", "very", "can", "will", "just", "should", "now", "could", "would",
+    "hello", "hi", "hey", "please", "thank", "thanks"
   ]);
 
-  // Extract meaningful words
+  // Filter meaningful words
   const meaningful = words.filter(word => 
-    word.length > 2 && !stopWords.has(word.toLowerCase())
+    !stopWords.has(word) && 
+    word.length > 2
   );
 
-  // Take first 4-6 meaningful words
-  const titleWords = meaningful.slice(0, Math.min(6, meaningful.length));
-  
-  if (titleWords.length === 0) {
-    return "General Question";
+  if (meaningful.length === 0) {
+    return "New Conversation";
   }
 
+  // Take first 2-3 meaningful words and create natural title
+  const titleWords = meaningful.slice(0, 3);
   const title = titleWords.join(" ");
-  return toTitleCase(title);
+  
+  // Capitalize first letter of each word for better readability
+  return title
+    .split(" ")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function normalizeMessage(message: string): string {

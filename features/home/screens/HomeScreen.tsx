@@ -242,7 +242,7 @@ export function HomeScreenView({
                 <View style={styles.convContent}>
                   <Text style={styles.convTitle}>{item.title}</Text>
                   <Text style={styles.convMessage} numberOfLines={1}>
-                    {item.lastMessage}
+                    {item.last_message}
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={16} color={colors.muted} style={{ opacity: 0.5 }} />

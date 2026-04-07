@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@/types";
+import type { ChatMessage, Conversation } from "@/types";
 import type { ChatThreadScreenProps } from "@/features/chat/types";
 import { 
   useConversationMessagesRealtime, 
@@ -6,8 +6,8 @@ import {
   useDeleteConversation,
   useRenameConversation
 } from "@/lib/api/chat/hooks";
-import { getConversationDetails } from "@/lib/supabase/chat/mutations";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useChatStore } from "@/store/useChatStore";
 import { triggerSend } from "@/lib/native/haptics";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState, useEffect } from "react";
@@ -37,15 +37,16 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
   const [inputText, setInputText] = useState("");
   const { userId } = useAuthStore();
   
-  // Local optimistic message state for smooth UX
-  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
-  // Local error state for user feedback (SKILL.md Rule 14)
-  const [sendError, setSendError] = useState<ChatError | null>(null);
-
+  // Enhanced chat store for shared conversation state - SINGLE SOURCE OF TRUTH
+  const { conversations, upsertConversation, removeConversation } = useChatStore();
+  
   // Validate conversationId to prevent undefined UUID errors
   const isValidConversationId = Boolean(conversationId && 
     conversationId !== 'undefined' && 
     conversationId.trim() !== '');
+  
+  // Get current conversation from shared store ONLY - no fallback
+  const conversation = conversations.find(c => c.id === conversationId) || null;
 
   // Rule 6: Data hooks in lib/ - feature hooks call them (now with realtime)
   const { 
@@ -55,76 +56,46 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
     refetch 
   } = useConversationMessagesRealtime(isValidConversationId ? conversationId : '');
   
-  // Get conversation data for header/management - use direct fetch instead of realtime
-  const [conversation, setConversation] = useState<Conversation | null>(null);
-  
-  // Fetch conversation details once on mount
-  useEffect(() => {
-    if (!isValidConversationId) return;
-    
-    const fetchConversation = async () => {
-      try {
-        const conv = await getConversationDetails(conversationId);
-        setConversation(conv);
-      } catch (err) {
-        // Log error for debugging but don't break the UI
-        console.error('Failed to fetch conversation details:', err);
-        setConversation(null);
-      }
-    };
-    
-    fetchConversation();
-  }, [conversationId, isValidConversationId]);
+  // Local optimistic message state for smooth UX
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
+  // Local error state for user feedback (SKILL.md Rule 14)
+  const [sendError, setSendError] = useState<ChatError | null>(null);
   
   // Conversation management hooks
   const { deleteConversation, deleting } = useDeleteConversation();
-  const { renameConversation, renaming, getOptimisticTitle } = useRenameConversation();
+  const { renameConversation, renaming } = useRenameConversation();
+
+  const onBack = useCallback(() => {
+    router.back();
+  }, [router]);
 
   // Handle conversation deletion with proper cleanup
   const handleDeleteConversation = useCallback(async (conversationId: string) => {
     const result = await deleteConversation(conversationId);
     
-    // If deletion successful, clear local conversation and navigate back
+    // If deletion successful, sync to store and navigate back
     if (result.success) {
-      setConversation(null);
+      removeConversation(conversationId);
       onBack();
     }
     
     return result;
-  }, [deleteConversation, onBack]);
+  }, [deleteConversation, removeConversation, onBack]);
   
-  // Handle conversation renaming with proper error handling
+  // Handle conversation renaming - update shared store only
   const handleRenameConversation = useCallback(async (conversationId: string, newTitle: string) => {
     const result = await renameConversation(conversationId, newTitle);
     
-    // Update local conversation state on success
+    // Immediately update shared store on success
     if (result.conversation) {
-      setConversation(prev => prev ? { 
-        ...prev, 
-        title: result.conversation!.title, 
-        title_status: result.conversation!.title_status || 'user_edited' 
-      } : null);
+      upsertConversation(result.conversation);
     }
     
     return result;
-  }, [renameConversation]);
-  
-  // Apply optimistic title updates but preserve AI-generated titles
-  const conversationWithOptimisticTitle = useMemo(() => {
-    if (!conversation) return null;
-    
-    // If title was AI-generated or user-edited, don't apply optimistic updates
-    if (conversation.title_status === 'generated' || conversation.title_status === 'user_edited') {
-      return conversation;
-    }
-    
-    // Only apply optimistic updates for pending titles
-    const optimisticTitle = getOptimisticTitle(conversation.id, conversation.title);
-    return {
-      ...conversation,
-      title: optimisticTitle
-    };
-  }, [conversation, getOptimisticTitle]);
+  }, [renameConversation, upsertConversation]);
+
+  // Display conversation directly from shared store - no optimistic updates
+  const displayConversation = conversation;
 
   const { 
     sendUserMessage,
@@ -183,10 +154,6 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
       !isDuplicateSendInProgress(optimisticMessages, trimmed)
     );
   }, [isValidConversationId, inputText, sending, optimisticMessages]);
-
-  const onBack = useCallback(() => {
-    router.back();
-  }, [router]);
 
   const onInputChange = useCallback((text: string) => {
     setInputText(text);
@@ -258,18 +225,20 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
         replacePlaceholderMessage(prev, assistantPlaceholder!.localId!, aiResult.result!.message)
       );
       
-      // Handle conversation title updates - update local state immediately
+      // Handle AI title updates - update shared store directly 
       if (aiResult.result?.conversation?.title_updated && aiResult.result.conversation.title) {
         const newTitle = aiResult.result.conversation.title;
-        setConversation(prev => 
-          prev
-            ? {
-                ...prev,
-                title: newTitle,
-                title_status: "generated" as const,
-              }
-            : prev
-        );
+        
+        // Update the conversation in shared store immediately
+        const currentConv = conversations.find(c => c.id === conversationId);
+        if (currentConv) {
+          upsertConversation({
+            ...currentConv,
+            title: newTitle,
+            title_status: "generated",
+            updated_at: new Date().toISOString(),
+          });
+        }
       }
       
       // 6. Refresh server data (this will clear optimistic messages via useEffect)
@@ -305,7 +274,7 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
       
       setSendError(chatError);
     }
-  }, [inputText, conversationId, isValidConversationId, canSend, userId, sendUserMessage, sendForEncouragement, serverMessages, refetch]);
+  }, [inputText, conversationId, isValidConversationId, canSend, userId, sendUserMessage, sendForEncouragement, serverMessages, refetch, conversations, upsertConversation]);
 
   const onScrollToBottom = useCallback(() => {
     // Handler for FlatList onContentSizeChange - implementation handled in component
@@ -313,7 +282,7 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
 
   return {
     conversationId,
-    conversation: conversationWithOptimisticTitle,
+    conversation: displayConversation,
     messages,
     loading: loadState === "loading",
     error: isValidConversationId ? errorMessage : "Invalid conversation ID",
@@ -327,8 +296,8 @@ export function useChatThreadScreenState(conversationId: string): ChatThreadScre
     onInputChange,
     onSend: handleSendMessage, // Use proper async handler name
     onScrollToBottom,
-    onDeleteConversation: handleDeleteConversation,
-    onRenameConversation: handleRenameConversation,
+    onDeleteConversation: () => handleDeleteConversation(conversationId),
+    onRenameConversation: (newTitle: string) => handleRenameConversation(conversationId, newTitle),
     refetch,
   };
 }

@@ -8,13 +8,13 @@ const MOCK_CONVERSATIONS: Conversation[] = [
   {
     id: "c1",
     title: "Anxious heart",
-    lastMessage: "You are held in grace.",
+    last_message: "You are held in grace.",
     updatedAt: new Date().toISOString(),
   },
   {
     id: "c2",
     title: "Purpose today",
-    lastMessage: "Walk in gentle obedience.",
+    last_message: "Walk in gentle obedience.",
     updatedAt: new Date().toISOString(),
   },
 ];
