@@ -15,6 +15,8 @@ const DAILY_DEVOTIONS: DailyDevotionEntry[] = [
     },
     passage: {
       reference: "Psalm 23",
+      bookId: "PSA",
+      chapter: 23,
       summary: "The Shepherd does not rush you. He restores, leads, and stays near.",
     },
     devotional: {
@@ -39,6 +41,8 @@ const DAILY_DEVOTIONS: DailyDevotionEntry[] = [
     },
     passage: {
       reference: "Hebrews 11",
+      bookId: "HEB",
+      chapter: 11,
       summary: "Faith keeps walking before the whole road becomes visible.",
     },
     devotional: {
@@ -63,6 +67,8 @@ const DAILY_DEVOTIONS: DailyDevotionEntry[] = [
     },
     passage: {
       reference: "Joshua 1:9",
+      bookId: "JOS",
+      chapter: 1,
       summary: "Strength in Scripture is not bravado. It is presence-aware courage.",
     },
     devotional: {
@@ -87,6 +93,8 @@ const DAILY_DEVOTIONS: DailyDevotionEntry[] = [
     },
     passage: {
       reference: "John 15",
+      bookId: "JHN",
+      chapter: 15,
       summary: "Fruit grows by abiding, not by striving harder than your soul can bear.",
     },
     devotional: {
@@ -111,6 +119,8 @@ const DAILY_DEVOTIONS: DailyDevotionEntry[] = [
     },
     passage: {
       reference: "Lamentations 3:22-23",
+      bookId: "LAM",
+      chapter: 3,
       summary: "Mercy meets you again this morning. Grace did not run out overnight.",
     },
     devotional: {
@@ -135,6 +145,8 @@ const DAILY_DEVOTIONS: DailyDevotionEntry[] = [
     },
     passage: {
       reference: "Philippians 4:4-7",
+      bookId: "PHP",
+      chapter: 4,
       summary: "Joy and peace deepen when worry is turned into prayer.",
     },
     devotional: {
@@ -159,6 +171,8 @@ const DAILY_DEVOTIONS: DailyDevotionEntry[] = [
     },
     passage: {
       reference: "Micah 6:8",
+      bookId: "MIC",
+      chapter: 6,
       summary: "A meaningful life is often built through humble, faithful, ordinary steps.",
     },
     devotional: {
@@ -195,8 +209,8 @@ export function getDailyDevotionForDate(date: Date): DailyDevotionEntry {
 export function getDefaultDailyDevotionProgress(dateKey: string): DailyDevotionProgress {
   return {
     dateKey,
-    quoteCompleted: false,
-    completedModuleIds: [],
+    isCompleted: false,
+    completedAt: null,
     isFavorite: false,
   };
 }
@@ -208,8 +222,8 @@ export async function loadDailyDevotionProgress(dateKey: string): Promise<DailyD
   }
   return {
     dateKey,
-    quoteCompleted: cached.quoteCompleted,
-    completedModuleIds: cached.completedModuleIds ?? [],
+    isCompleted: cached.isCompleted ?? false,
+    completedAt: cached.completedAt ?? null,
     isFavorite: cached.isFavorite ?? false,
   };
 }

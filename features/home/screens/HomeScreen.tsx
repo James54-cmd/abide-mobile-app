@@ -49,7 +49,6 @@ export function HomeScreenView({
   onFavoritePress,
   modules,
   onModulePress,
-  onToggleModuleComplete,
   onPassageListen,
   onPassageRead,
   onPrimaryPromptPress,
@@ -136,7 +135,7 @@ export function HomeScreenView({
               <Pressable
                 onPress={onQuoteCompletePress}
                 accessibilityRole="button"
-                accessibilityLabel={quoteCompleted ? "Mark quote as not done" : "Mark quote as done"}
+                accessibilityLabel={quoteCompleted ? "Open today's completed devotion" : "Open today's devotion"}
                 style={[
                   styles.quoteCheckButton,
                   quoteCompleted && styles.quoteCheckButtonActive,
@@ -153,7 +152,7 @@ export function HomeScreenView({
                     quoteCompleted && styles.quoteCheckTextActive,
                   ]}
                 >
-                  {quoteCompleted ? "Done" : "Mark done"}
+                  {quoteCompleted ? "Completed" : "Open devotion"}
                 </Text>
               </Pressable>
             </View>
@@ -213,12 +212,7 @@ export function HomeScreenView({
                     ) : (
                       <View style={styles.moduleMetaSpacer} />
                     )}
-                    <Pressable
-                      onPress={() => onToggleModuleComplete?.(m.id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        m.completed ? `Mark ${m.title} as not done` : `Mark ${m.title} as done`
-                      }
+                    <View
                       style={[
                         styles.moduleCheckButton,
                         m.completed && styles.moduleCheckButtonActive,
@@ -229,7 +223,7 @@ export function HomeScreenView({
                         size={15}
                         color={m.completed ? colors.white : colors.muted}
                       />
-                    </Pressable>
+                    </View>
                   </View>
 
                   {m.summary ? <Text style={styles.moduleSummary}>{m.summary}</Text> : null}

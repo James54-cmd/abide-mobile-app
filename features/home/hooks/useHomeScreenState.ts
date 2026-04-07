@@ -1,9 +1,10 @@
 import { useDailyDevotion } from "@/features/home/hooks/useDailyDevotion";
 import type { DevotionalModuleKind, HomeScreenProps } from "@/features/home/types";
+import { buildBibleChapterPath } from "@/features/bible/utils/chapterRoute";
 import type { Conversation } from "@/types";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStreakStore } from "@/store/useStreakStore";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { useCallback, useMemo } from "react";
 
 const MOCK_CONVERSATIONS: Conversation[] = [
@@ -71,8 +72,11 @@ export function useHomeScreenState(): HomeScreenProps {
 
   const now = useMemo(() => new Date(), []);
   const weekDays = useMemo(() => buildWeekDays(now), [now]);
-  const { devotion, progress, toggleFavorite, toggleModuleComplete, toggleQuoteComplete } =
-    useDailyDevotion(now);
+  const { devotion, progress, toggleFavorite } = useDailyDevotion(now);
+
+  const openDailyDevotion = useCallback(() => {
+    router.push("/daily-devotion");
+  }, [router]);
 
   const onHeartPress = useCallback(() => {
     router.push("/(tabs)/chat");
@@ -100,27 +104,29 @@ export function useHomeScreenState(): HomeScreenProps {
   const onModulePress = useCallback(
     (_id: string, kind: DevotionalModuleKind) => {
       if (kind === "passage") {
-        router.push("/(tabs)/bible");
+        router.push(
+          buildBibleChapterPath(devotion.passage.bookId, devotion.passage.chapter) as Href
+        );
         return;
       }
 
-      router.push("/(tabs)/chat");
+      openDailyDevotion();
     },
-    [router]
+    [devotion.passage.bookId, devotion.passage.chapter, openDailyDevotion, router]
   );
 
   const onPassageListen = useCallback(
     (_moduleId: string) => {
-      router.push("/(tabs)/bible");
+      router.push(buildBibleChapterPath(devotion.passage.bookId, devotion.passage.chapter) as Href);
     },
-    [router]
+    [devotion.passage.bookId, devotion.passage.chapter, router]
   );
 
   const onPassageRead = useCallback(
     (_moduleId: string) => {
-      router.push("/(tabs)/bible");
+      router.push(buildBibleChapterPath(devotion.passage.bookId, devotion.passage.chapter) as Href);
     },
-    [router]
+    [devotion.passage.bookId, devotion.passage.chapter, router]
   );
 
   return {
@@ -136,10 +142,8 @@ export function useHomeScreenState(): HomeScreenProps {
     quoteAuthor: devotion.quote.author,
     quoteSourceLabel: devotion.quote.sourceLabel,
     quoteTheme: devotion.theme,
-    quoteCompleted: progress.quoteCompleted,
-    onQuoteCompletePress: () => {
-      void toggleQuoteComplete();
-    },
+    quoteCompleted: progress.isCompleted,
+    onQuoteCompletePress: openDailyDevotion,
     dateLabel: formatDateLabel(now),
     dailyTopicTitle: devotion.theme,
     dailySectionLabel: "DAILY DEVOTIONAL",
@@ -153,7 +157,7 @@ export function useHomeScreenState(): HomeScreenProps {
         kind: "passage",
         title: "Scripture",
         durationMinutes: 2,
-        completed: progress.completedModuleIds.includes("mod-passage"),
+        completed: progress.isCompleted,
         summary: devotion.passage.summary,
         passageReference: devotion.passage.reference,
       },
@@ -162,26 +166,23 @@ export function useHomeScreenState(): HomeScreenProps {
         kind: "devotional",
         title: "Devotional",
         durationMinutes: 4,
-        completed: progress.completedModuleIds.includes("mod-devotional"),
+        completed: progress.isCompleted,
         summary: devotion.devotional.title,
         body: devotion.devotional.body,
-        actionLabel: "Reflect with Abide",
+        actionLabel: progress.isCompleted ? "Completed today" : "Open daily devotion",
       },
       {
         id: "mod-prayer",
         kind: "prayer",
         title: "Prayer",
         durationMinutes: 2,
-        completed: progress.completedModuleIds.includes("mod-prayer"),
+        completed: progress.isCompleted,
         summary: devotion.prayer.title,
         body: devotion.prayer.body,
-        actionLabel: "Pray with Abide",
+        actionLabel: progress.isCompleted ? "Completed today" : "Open daily devotion",
       },
     ],
     onModulePress,
-    onToggleModuleComplete: (id: string) => {
-      void toggleModuleComplete(id);
-    },
     onPassageListen,
     onPassageRead,
     onPrimaryPromptPress: onHeartPress,

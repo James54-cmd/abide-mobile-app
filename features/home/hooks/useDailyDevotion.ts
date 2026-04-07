@@ -9,6 +9,8 @@ import {
   saveStoredStreakState,
 } from "@/lib/home/dailyDevotion";
 import { computeStreak } from "@/lib/native/streak";
+import { recordDailyStreakActivity } from "@/lib/supabase/streak";
+import { useAuthStore } from "@/store/useAuthStore";
 import { useStreakStore } from "@/store/useStreakStore";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -19,6 +21,7 @@ function isSameDay(a: string | null, b: string): boolean {
 export function useDailyDevotion(now: Date) {
   const devotion = useMemo(() => getDailyDevotionForDate(now), [now]);
   const dateKey = useMemo(() => getDateKey(now), [now]);
+  const userId = useAuthStore((s) => s.userId);
   const setStreak = useStreakStore((s) => s.setStreak);
   const [progress, setProgress] = useState<DailyDevotionProgress>(() =>
     getDefaultDailyDevotionProgress(dateKey)
@@ -55,6 +58,22 @@ export function useDailyDevotion(now: Date) {
   }, [dateKey, setStreak]);
 
   const ensureDailyEngagement = useCallback(async () => {
+    if (userId) {
+      try {
+        const synced = await recordDailyStreakActivity({
+          userId,
+          activityType: "daily_devotion_completed",
+          now,
+        });
+
+        setStreak(synced);
+        await saveStoredStreakState(synced);
+        return;
+      } catch (error) {
+        console.warn("Falling back to local streak persistence.", error);
+      }
+    }
+
     const streak = useStreakStore.getState();
     if (isSameDay(streak.streakLastActive, dateKey)) return;
 
@@ -68,7 +87,7 @@ export function useDailyDevotion(now: Date) {
 
     setStreak(nextState);
     await saveStoredStreakState(nextState);
-  }, [dateKey, now, setStreak]);
+  }, [dateKey, now, setStreak, userId]);
 
   const updateProgress = useCallback(
     async (updater: (current: DailyDevotionProgress) => DailyDevotionProgress) => {
@@ -81,36 +100,17 @@ export function useDailyDevotion(now: Date) {
     []
   );
 
-  const toggleQuoteComplete = useCallback(async () => {
-    const next = await updateProgress((current) => ({
+  const completeDevotion = useCallback(async () => {
+    const current = progressRef.current;
+    if (current.isCompleted) return;
+
+    await updateProgress(() => ({
       ...current,
-      quoteCompleted: !current.quoteCompleted,
+      isCompleted: true,
+      completedAt: now.toISOString(),
     }));
-
-    if (next.quoteCompleted) {
-      await ensureDailyEngagement();
-    }
-  }, [ensureDailyEngagement, updateProgress]);
-
-  const toggleModuleComplete = useCallback(
-    async (moduleId: string) => {
-      const next = await updateProgress((current) => {
-        const completedModuleIds = current.completedModuleIds.includes(moduleId)
-          ? current.completedModuleIds.filter((id) => id !== moduleId)
-          : [...current.completedModuleIds, moduleId];
-
-        return {
-          ...current,
-          completedModuleIds,
-        };
-      });
-
-      if (next.completedModuleIds.includes(moduleId)) {
-        await ensureDailyEngagement();
-      }
-    },
-    [ensureDailyEngagement, updateProgress]
-  );
+    await ensureDailyEngagement();
+  }, [ensureDailyEngagement, now, updateProgress]);
 
   const toggleFavorite = useCallback(async () => {
     await updateProgress((current) => ({
@@ -122,8 +122,7 @@ export function useDailyDevotion(now: Date) {
   return {
     devotion,
     progress,
-    toggleQuoteComplete,
-    toggleModuleComplete,
+    completeDevotion,
     toggleFavorite,
   };
 }

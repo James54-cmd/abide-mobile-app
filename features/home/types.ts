@@ -36,6 +36,8 @@ export interface DailyDevotionEntry {
   };
   passage: {
     reference: string;
+    bookId: string;
+    chapter: number;
     summary: string;
   };
   devotional: {
@@ -50,8 +52,8 @@ export interface DailyDevotionEntry {
 
 export interface DailyDevotionProgress {
   dateKey: string;
-  quoteCompleted: boolean;
-  completedModuleIds: string[];
+  isCompleted: boolean;
+  completedAt?: string | null;
   isFavorite: boolean;
 }
 
@@ -81,7 +83,6 @@ export interface HomeScreenProps {
   onFavoritePress?: () => void;
   modules: DevotionalModuleItem[];
   onModulePress?: (id: string, kind: DevotionalModuleKind) => void;
-  onToggleModuleComplete?: (id: string) => void;
   onPassageListen?: (moduleId: string) => void;
   onPassageRead?: (moduleId: string) => void;
   /** Primary CTA (e.g. chat / journal) */
@@ -91,4 +92,26 @@ export interface HomeScreenProps {
   conversations: Conversation[];
   onConversationPress?: (id: string) => void;
   onSettingsPress?: () => void;
+}
+
+export interface DailyDevotionStoryScreenProps {
+  dateLabel: string;
+  title: string;
+  image: ImageSourcePropType;
+  isCompleted: boolean;
+  activeStepIndex: number;
+  totalSteps: number;
+  stepDurationMs: number;
+  steps: {
+    id: string;
+    eyebrow: string;
+    title: string;
+    body: string;
+    caption?: string;
+    primaryActionLabel?: string;
+    onPrimaryActionPress?: () => void;
+  }[];
+  onBack?: () => void;
+  onNext?: () => void;
+  onPrevious?: () => void;
 }
