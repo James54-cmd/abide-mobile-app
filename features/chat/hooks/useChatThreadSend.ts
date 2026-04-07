@@ -101,10 +101,13 @@ export function useChatThreadSend({
         updateMessageStatus(prev, optimisticUserMsg!.localId!, "sent")
       );
 
-      assistantPlaceholder = createAssistantPlaceholder(conversationId, userId);
+      const serverUser = userResult.message!;
+      assistantPlaceholder = createAssistantPlaceholder(conversationId, userId, {
+        afterUserTimestamps: [optimisticUserMsg.created_at, serverUser.created_at],
+      });
       setOptimisticMessages((prev) => [...prev, assistantPlaceholder!]);
 
-      const currentMessages = [...(serverMessages ?? []), userResult.message!];
+      const currentMessages = [...(serverMessages ?? []), serverUser];
       const aiResult = await sendForEncouragement(conversationId, trimmed, currentMessages);
 
       if (aiResult.error) {
