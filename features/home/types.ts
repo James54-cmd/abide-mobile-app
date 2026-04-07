@@ -52,6 +52,10 @@ export interface DailyDevotionEntry {
 
 export interface DailyDevotionProgress {
   dateKey: string;
+  quoteCompleted: boolean;
+  passageCompleted: boolean;
+  devotionalCompleted: boolean;
+  prayerCompleted: boolean;
   isCompleted: boolean;
   completedAt?: string | null;
   dismissedAt?: string | null;
@@ -115,6 +119,7 @@ export interface DailyDevotionStoryScreenProps {
   }[];
   onBack?: () => void;
   onDismiss?: () => void;
+  onStepTimeout?: () => void | Promise<void>;
   onNext?: () => void;
   onPrevious?: () => void;
 }

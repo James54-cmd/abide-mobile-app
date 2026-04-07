@@ -212,6 +212,10 @@ export function getDailyDevotionForDate(date: Date): DailyDevotionEntry {
 export function getDefaultDailyDevotionProgress(dateKey: string): DailyDevotionProgress {
   return {
     dateKey,
+    quoteCompleted: false,
+    passageCompleted: false,
+    devotionalCompleted: false,
+    prayerCompleted: false,
     isCompleted: false,
     completedAt: null,
     dismissedAt: null,
@@ -231,10 +235,21 @@ export function normalizeLocalDailyDevotionProgress(
   dateKey: string,
   cached: Partial<DailyDevotionProgress> | null | undefined
 ): DailyDevotionProgress {
+  const quoteCompleted = cached?.quoteCompleted ?? cached?.isCompleted ?? false;
+  const passageCompleted = cached?.passageCompleted ?? cached?.isCompleted ?? false;
+  const devotionalCompleted = cached?.devotionalCompleted ?? cached?.isCompleted ?? false;
+  const prayerCompleted = cached?.prayerCompleted ?? cached?.isCompleted ?? false;
+  const isCompleted =
+    quoteCompleted && passageCompleted && devotionalCompleted && prayerCompleted;
+
   return {
     dateKey,
-    isCompleted: cached?.isCompleted ?? false,
-    completedAt: cached?.completedAt ?? null,
+    quoteCompleted,
+    passageCompleted,
+    devotionalCompleted,
+    prayerCompleted,
+    isCompleted,
+    completedAt: isCompleted ? cached?.completedAt ?? null : null,
     dismissedAt: cached?.dismissedAt ?? null,
     isFavorite: cached?.isFavorite ?? false,
   };

@@ -2,6 +2,10 @@ import type { DailyDevotionProgress } from "@/features/home/types";
 import { supabase } from "@/lib/supabase";
 
 type DailyDevotionProgressRow = {
+  quote_completed: boolean | null;
+  passage_completed: boolean | null;
+  devotional_completed: boolean | null;
+  prayer_completed: boolean | null;
   is_completed: boolean | null;
   completed_at: string | null;
   dismissed_at: string | null;
@@ -23,10 +27,21 @@ export function normalizeDailyDevotionProgress(
   dateKey: string,
   row: Partial<DailyDevotionProgressRow> | null | undefined
 ): DailyDevotionProgress {
+  const quoteCompleted = row?.quote_completed ?? row?.is_completed ?? false;
+  const passageCompleted = row?.passage_completed ?? row?.is_completed ?? false;
+  const devotionalCompleted = row?.devotional_completed ?? row?.is_completed ?? false;
+  const prayerCompleted = row?.prayer_completed ?? row?.is_completed ?? false;
+  const isCompleted =
+    quoteCompleted && passageCompleted && devotionalCompleted && prayerCompleted;
+
   return {
     dateKey,
-    isCompleted: row?.is_completed ?? false,
-    completedAt: row?.completed_at ?? null,
+    quoteCompleted,
+    passageCompleted,
+    devotionalCompleted,
+    prayerCompleted,
+    isCompleted,
+    completedAt: isCompleted ? row?.completed_at ?? null : null,
     dismissedAt: row?.dismissed_at ?? null,
     isFavorite: row?.is_favorite ?? false,
   };
@@ -38,7 +53,9 @@ export async function loadRemoteDailyDevotionProgress(
 ): Promise<DailyDevotionProgress | null> {
   const { data, error } = await supabase
     .from("daily_devotion_progress")
-    .select("is_completed, completed_at, dismissed_at, is_favorite")
+    .select(
+      "quote_completed, passage_completed, devotional_completed, prayer_completed, is_completed, completed_at, dismissed_at, is_favorite"
+    )
     .eq("user_id", userId)
     .eq("date", dateKey)
     .maybeSingle();
@@ -64,6 +81,10 @@ export async function saveRemoteDailyDevotionProgress(
       {
         user_id: userId,
         date: progress.dateKey,
+        quote_completed: progress.quoteCompleted,
+        passage_completed: progress.passageCompleted,
+        devotional_completed: progress.devotionalCompleted,
+        prayer_completed: progress.prayerCompleted,
         is_completed: progress.isCompleted,
         completed_at: progress.completedAt,
         dismissed_at: progress.dismissedAt,
@@ -71,7 +92,9 @@ export async function saveRemoteDailyDevotionProgress(
       },
       { onConflict: "user_id,date" }
     )
-    .select("is_completed, completed_at, dismissed_at, is_favorite")
+    .select(
+      "quote_completed, passage_completed, devotional_completed, prayer_completed, is_completed, completed_at, dismissed_at, is_favorite"
+    )
     .single();
 
   if (error) {

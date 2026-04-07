@@ -125,45 +125,48 @@ export function HomeScreenView({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <ImageBackground source={quoteImage} imageStyle={styles.quoteHeroImage} style={styles.quoteHero}>
-          <View style={styles.quoteOverlay} />
-          <View style={styles.quoteHeroContent}>
-            <View style={styles.quoteTopRow}>
-              <View style={styles.quoteLabelPill}>
-                <Text style={styles.quoteLabelText}>{quoteSourceLabel}</Text>
-              </View>
-              <Pressable
-                onPress={onQuoteCompletePress}
-                accessibilityRole="button"
-                accessibilityLabel={quoteCompleted ? "Open today's completed devotion" : "Open today's devotion"}
-                style={[
-                  styles.quoteCheckButton,
-                  quoteCompleted && styles.quoteCheckButtonActive,
-                ]}
-              >
-                <Feather
-                  name={quoteCompleted ? "check" : "circle"}
-                  size={16}
-                  color={quoteCompleted ? colors.ink : colors.white}
-                />
-                <Text
+        <Pressable
+          onPress={onQuoteCompletePress}
+          accessibilityRole="button"
+          accessibilityLabel={quoteCompleted ? "Open today's completed devotion" : "Open today's devotion"}
+        >
+          <ImageBackground source={quoteImage} imageStyle={styles.quoteHeroImage} style={styles.quoteHero}>
+            <View style={styles.quoteOverlay} />
+            <View style={styles.quoteHeroContent}>
+              <View style={styles.quoteTopRow}>
+                <View style={styles.quoteLabelPill}>
+                  <Text style={styles.quoteLabelText}>{quoteSourceLabel}</Text>
+                </View>
+                <View
                   style={[
-                    styles.quoteCheckText,
-                    quoteCompleted && styles.quoteCheckTextActive,
+                    styles.quoteCheckButton,
+                    quoteCompleted && styles.quoteCheckButtonActive,
                   ]}
                 >
-                  {quoteCompleted ? "Completed" : "Open devotion"}
-                </Text>
-              </Pressable>
-            </View>
+                  <Feather
+                    name={quoteCompleted ? "check" : "circle"}
+                    size={16}
+                    color={quoteCompleted ? colors.ink : colors.white}
+                  />
+                  <Text
+                    style={[
+                      styles.quoteCheckText,
+                      quoteCompleted && styles.quoteCheckTextActive,
+                    ]}
+                  >
+                    {quoteCompleted ? "Completed" : "Open devotion"}
+                  </Text>
+                </View>
+              </View>
 
-            <View>
-              <Text style={styles.quoteTheme}>{quoteTheme}</Text>
-              <Text style={styles.quoteText}>"{quoteText}"</Text>
-              <Text style={styles.quoteAuthor}>- {quoteAuthor}</Text>
+              <View>
+                <Text style={styles.quoteTheme}>{quoteTheme}</Text>
+                <Text style={styles.quoteText}>"{quoteText}"</Text>
+                <Text style={styles.quoteAuthor}>- {quoteAuthor}</Text>
+              </View>
             </View>
-          </View>
-        </ImageBackground>
+          </ImageBackground>
+        </Pressable>
 
         <View style={styles.sheet}>
           <View style={styles.sheetHeader}>

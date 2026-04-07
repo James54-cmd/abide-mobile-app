@@ -1,8 +1,9 @@
 import { useDailyDevotion } from "@/features/home/hooks/useDailyDevotion";
 import type { DailyDevotionStoryScreenProps } from "@/features/home/types";
-import { buildBibleChapterPath } from "@/features/bible/utils/chapterRoute";
-import { useRouter, type Href } from "expo-router";
+import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
+
+const STEP_DURATION_MS = 6000;
 
 function formatDateLabel(d: Date): string {
   const months = [
@@ -25,7 +26,7 @@ function formatDateLabel(d: Date): string {
 export function useDailyDevotionStoryState(): DailyDevotionStoryScreenProps {
   const router = useRouter();
   const now = useMemo(() => new Date(), []);
-  const { devotion, progress, completeDevotion, dismissForToday } = useDailyDevotion(now);
+  const { devotion, progress, completePart, dismissForToday } = useDailyDevotion(now);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
 
   const goHomeSafely = useCallback(() => {
@@ -37,9 +38,36 @@ export function useDailyDevotionStoryState(): DailyDevotionStoryScreenProps {
     router.replace("/(tabs)/home");
   }, [router]);
 
-  const onOpenPassage = useCallback(() => {
-    router.push(buildBibleChapterPath(devotion.passage.bookId, devotion.passage.chapter) as Href);
-  }, [devotion.passage.bookId, devotion.passage.chapter, router]);
+  const completeCurrentStepIfNeeded = useCallback(async () => {
+    const stepPart =
+      activeStepIndex === 0
+        ? "quote"
+        : activeStepIndex === 1
+          ? "passage"
+          : activeStepIndex === 2
+            ? "devotional"
+            : activeStepIndex === 3
+              ? "prayer"
+              : null;
+
+    if (!stepPart) return;
+
+    const alreadyCompleted =
+      (stepPart === "quote" && progress.quoteCompleted) ||
+      (stepPart === "passage" && progress.passageCompleted) ||
+      (stepPart === "devotional" && progress.devotionalCompleted) ||
+      (stepPart === "prayer" && progress.prayerCompleted);
+
+    if (alreadyCompleted) return;
+    await completePart(stepPart);
+  }, [
+    activeStepIndex,
+    completePart,
+    progress.devotionalCompleted,
+    progress.passageCompleted,
+    progress.prayerCompleted,
+    progress.quoteCompleted,
+  ]);
 
   const steps = useMemo<DailyDevotionStoryScreenProps["steps"]>(
     () => [
@@ -55,9 +83,7 @@ export function useDailyDevotionStoryState(): DailyDevotionStoryScreenProps {
         eyebrow: "SCRIPTURE",
         title: devotion.passage.reference,
         body: devotion.passage.summary,
-        caption: "Read in BSB",
-        primaryActionLabel: "Open passage",
-        onPrimaryActionPress: onOpenPassage,
+        caption: progress.passageCompleted ? "Completed in BSB" : "Read in BSB",
       },
       {
         id: "devotional",
@@ -74,40 +100,42 @@ export function useDailyDevotionStoryState(): DailyDevotionStoryScreenProps {
       {
         id: "finish",
         eyebrow: "COMPLETE",
-        title: progress.isCompleted ? "Today's devotion is complete" : "Finish today's devotion",
+        title: progress.isCompleted ? "Today's devotion is complete" : "Keep going through each part",
         body: progress.isCompleted
           ? "You've already completed today's devotion. Come back anytime to read it again."
-          : "When you finish this last step, today's devotion will be marked complete and locked in.",
+          : "Each part completes on its own now. Finish quote, scripture, devotional, and prayer to complete the whole devotion.",
       },
     ],
-    [devotion, onOpenPassage, progress.isCompleted]
+    [
+      devotion,
+      progress.isCompleted,
+      progress.passageCompleted,
+    ]
   );
 
   const onNext = useCallback(() => {
     setActiveStepIndex((current) => Math.min(current + 1, steps.length - 1));
   }, [steps.length]);
 
+  const onStepTimeout = useCallback(async () => {
+    await completeCurrentStepIfNeeded();
+    setActiveStepIndex((current) => Math.min(current + 1, steps.length - 2));
+  }, [completeCurrentStepIfNeeded, steps.length]);
+
   const onPrevious = useCallback(() => {
     setActiveStepIndex((current) => Math.max(current - 1, 0));
   }, []);
-
-  const onBack = useCallback(() => {
-    goHomeSafely();
-  }, [goHomeSafely]);
 
   const onDismiss = useCallback(async () => {
     if (!progress.isCompleted) {
       await dismissForToday();
     }
-    router.replace("/(tabs)/home");
-  }, [dismissForToday, progress.isCompleted, router]);
+    goHomeSafely();
+  }, [dismissForToday, goHomeSafely, progress.isCompleted]);
 
   const finishIfNeeded = useCallback(async () => {
-    if (!progress.isCompleted) {
-      await completeDevotion();
-    }
     goHomeSafely();
-  }, [completeDevotion, goHomeSafely, progress.isCompleted]);
+  }, [goHomeSafely]);
 
   return {
     dateLabel: formatDateLabel(now),
@@ -117,18 +145,19 @@ export function useDailyDevotionStoryState(): DailyDevotionStoryScreenProps {
     canDismiss: !progress.isCompleted,
     activeStepIndex,
     totalSteps: steps.length,
-    stepDurationMs: 6000,
+    stepDurationMs: STEP_DURATION_MS,
     steps: steps.map((step, index) =>
       index === steps.length - 1
         ? {
             ...step,
-            primaryActionLabel: progress.isCompleted ? "Back to home" : "Finish devotion",
+            primaryActionLabel: "Back to home",
             onPrimaryActionPress: finishIfNeeded,
           }
         : step
     ),
-    onBack,
+    onBack: goHomeSafely,
     onDismiss,
+    onStepTimeout,
     onNext,
     onPrevious,
   };

@@ -11,9 +11,17 @@ import {
 import { computeStreak } from "@/lib/native/streak";
 import { saveRemoteDailyDevotionProgress } from "@/lib/supabase/dailyDevotion";
 import { recordDailyStreakActivity } from "@/lib/supabase/streak";
+import { useFocusEffect } from "@react-navigation/native";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useStreakStore } from "@/store/useStreakStore";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const MODULE_PROGRESS_KEY = {
+  quote: "quoteCompleted",
+  passage: "passageCompleted",
+  devotional: "devotionalCompleted",
+  prayer: "prayerCompleted",
+} as const;
 
 function isSameDay(a: string | null, b: string): boolean {
   return a?.slice(0, 10) === b;
@@ -33,30 +41,43 @@ export function useDailyDevotion(now: Date) {
     progressRef.current = progress;
   }, [progress]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function hydrate() {
+  const hydrate = useCallback(
+    async (cancelledRef?: { current: boolean }) => {
       const [savedProgress, savedStreak] = await Promise.all([
         resolveDailyDevotionProgress(dateKey, userId),
         loadStoredStreakState(),
       ]);
 
-      if (cancelled) return;
+      if (cancelledRef?.current) return;
 
       setProgress(savedProgress);
       progressRef.current = savedProgress;
       if (savedStreak) {
         setStreak(savedStreak);
       }
-    }
+    },
+    [dateKey, setStreak, userId]
+  );
 
-    void hydrate();
+  useEffect(() => {
+    const cancelledRef = { current: false };
+    void hydrate(cancelledRef);
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
-  }, [dateKey, setStreak, userId]);
+  }, [hydrate]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const cancelledRef = { current: false };
+      void hydrate(cancelledRef);
+
+      return () => {
+        cancelledRef.current = true;
+      };
+    }, [hydrate])
+  );
 
   const ensureDailyEngagement = useCallback(async () => {
     if (userId) {
@@ -145,10 +166,47 @@ export function useDailyDevotion(now: Date) {
     }));
   }, [updateProgress]);
 
+  const completePart = useCallback(
+    async (part: keyof typeof MODULE_PROGRESS_KEY) => {
+      const current = progressRef.current;
+      const progressKey = MODULE_PROGRESS_KEY[part];
+      if (current[progressKey]) return current;
+
+      const next = await updateProgress((existing) => {
+        const quoteCompleted =
+          progressKey === "quoteCompleted" ? true : existing.quoteCompleted;
+        const passageCompleted =
+          progressKey === "passageCompleted" ? true : existing.passageCompleted;
+        const devotionalCompleted =
+          progressKey === "devotionalCompleted" ? true : existing.devotionalCompleted;
+        const prayerCompleted =
+          progressKey === "prayerCompleted" ? true : existing.prayerCompleted;
+        const isCompleted =
+          quoteCompleted && passageCompleted && devotionalCompleted && prayerCompleted;
+
+        return {
+          ...existing,
+          quoteCompleted,
+          passageCompleted,
+          devotionalCompleted,
+          prayerCompleted,
+          isCompleted,
+          completedAt: isCompleted ? existing.completedAt ?? now.toISOString() : null,
+          dismissedAt: isCompleted ? null : existing.dismissedAt,
+        };
+      });
+
+      await ensureDailyEngagement();
+      return next;
+    },
+    [ensureDailyEngagement, now, updateProgress]
+  );
+
   return {
     devotion,
     progress,
     completeDevotion,
+    completePart,
     dismissForToday,
     toggleFavorite,
   };
