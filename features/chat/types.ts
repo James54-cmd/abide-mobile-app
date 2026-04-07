@@ -33,8 +33,8 @@ export interface ChatThreadScreenProps {
   onInputChange: (text: string) => void;
   onSend: () => void;
   onScrollToBottom: () => void;
-  onDeleteConversation: () => void;
-  onRenameConversation: (newTitle: string) => void;
+  onDeleteConversation: (id: string) => void;
+  onRenameConversation: (id: string, newTitle: string) => void;
   refetch: () => void;
 }
 

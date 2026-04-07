@@ -666,6 +666,14 @@ Deno.serve(async (req) => {
       .eq('id', conversationId)
       .single();
 
+    let generatedConversationTitle: string | null = null;
+    let generatedTitleStatus:
+      | 'pending'
+      | 'generated'
+      | 'locked'
+      | 'user_edited'
+      | null = null;
+
     let shouldGenerateTitle = false;
     
     if (currentConversation) {
@@ -687,6 +695,8 @@ Deno.serve(async (req) => {
       // Generate and update title if needed
       if (shouldGenerateTitle) {
         const newTitle = generateTitleFromMessage(message);
+        generatedConversationTitle = newTitle;
+        generatedTitleStatus = 'generated';
         console.log(`Generating title for conversation ${conversationId}: "${newTitle}"`);
         
         await serviceClient
@@ -901,10 +911,12 @@ Deno.serve(async (req) => {
       // Still return the AI response even if storage fails
     }
 
-    // Update conversation timestamp
+    const responseNow = new Date().toISOString();
+
+    // Update conversation timestamp (single source for client `updated_at`)
     const { error: conversationUpdateError } = await serviceClient
       .from("chat_conversations")
-      .update({ updated_at: new Date().toISOString() })
+      .update({ updated_at: responseNow })
       .eq("id", conversationId)
       .eq("user_id", user.id);
     
@@ -912,7 +924,16 @@ Deno.serve(async (req) => {
       console.error('Conversation update error:', conversationUpdateError)
     }
 
-    // Return successful response with conversation title update if applicable
+    const responseTitle =
+      generatedConversationTitle ??
+      (typeof currentConversation?.title === 'string' ? currentConversation.title : null) ??
+      'New Conversation';
+    const responseTitleStatus =
+      generatedTitleStatus ??
+      (currentConversation?.title_status as typeof generatedTitleStatus | undefined) ??
+      'pending';
+
+    // Return successful response with conversation snapshot for immediate client sync
     return new Response(
       JSON.stringify({
         success: true,
@@ -924,6 +945,12 @@ Deno.serve(async (req) => {
           encouragement: encouragementData,
           created_at: aiMessage?.created_at || new Date().toISOString(),
           user_id: user.id
+        },
+        conversation: {
+          id: conversationId,
+          title: responseTitle,
+          title_status: responseTitleStatus,
+          updated_at: responseNow,
         },
         titleUpdated: shouldGenerateTitle
       }),

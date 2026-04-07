@@ -5,8 +5,12 @@ import {
   createConversation,
   sendChatMessage 
 } from "@/lib/api/conversations/requests";
-import { postAiEncouragement } from "@/lib/api/chat/requests";
-import { deleteConversation, updateConversationTitle } from "@/lib/supabase/chat/mutations";
+import { postAiEncouragement, type AiChatConversationPayload } from "@/lib/api/chat/requests";
+import {
+  deleteConversation,
+  getConversationDetails,
+  updateConversationTitle,
+} from "@/lib/supabase/chat/mutations";
 import type { ChatMessage, Conversation } from "@/types";
 import { 
   createChatError, 
@@ -39,6 +43,49 @@ export function useGetConversations() {
     [],
     "Failed to load conversations"
   );
+}
+
+/**
+ * Loads one conversation row for thread header / context.
+ * SKILL.md Rules 10–11: feature hooks consume this data hook instead of calling `lib/supabase` directly.
+ */
+export function useConversationDetails(conversationId: string) {
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [loadState, setLoadState] = useState<"idle" | "loading" | "error" | "loaded">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    const valid =
+      Boolean(conversationId) &&
+      conversationId !== "undefined" &&
+      conversationId.trim() !== "";
+
+    if (!valid) {
+      setConversation(null);
+      setLoadState("idle");
+      setErrorMessage(null);
+      return;
+    }
+
+    setLoadState("loading");
+    setErrorMessage(null);
+    try {
+      const conv = await getConversationDetails(conversationId);
+      setConversation(conv);
+      setLoadState("loaded");
+    } catch (err) {
+      console.error("[useConversationDetails] fetch failed:", err);
+      setConversation(null);
+      setErrorMessage(err instanceof Error ? err.message : "Failed to load conversation");
+      setLoadState("error");
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    void refetch();
+  }, [refetch]);
+
+  return { conversation, setConversation, loadState, errorMessage, refetch };
 }
 
 /**
@@ -428,7 +475,7 @@ export function useSendMessage() {
   ): Promise<{
     result?: {
       message: ChatMessage;
-      conversation?: { title_updated: boolean; title?: string };
+      conversation?: AiChatConversationPayload;
     };
     error?: ChatError;
   }> => {

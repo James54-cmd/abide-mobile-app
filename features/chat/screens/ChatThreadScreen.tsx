@@ -310,11 +310,11 @@ export function ChatThreadScreen({ conversationId }: Props) {
           onClose={() => setShowContextMenu(false)}
           onDelete={() => {
             setShowContextMenu(false);
-            state.onDeleteConversation();
+            state.onDeleteConversation(state.conversationId);
           }}
           onRename={(newTitle) => {
             setShowContextMenu(false);
-            state.onRenameConversation(newTitle);
+            state.onRenameConversation(state.conversationId, newTitle);
           }}
           isDeleting={state.isDeleting}
           isRenaming={state.isRenaming}
